@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -31,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.example.noteen.data.model.ConfirmAction
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun ConfirmDialog(
@@ -40,6 +42,8 @@ fun ConfirmDialog(
     if (action == null) return
 
     val focusManager = LocalFocusManager.current
+
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         delay(150)
@@ -119,8 +123,10 @@ fun ConfirmDialog(
                         Button(
                             onClick = {
                                 focusManager.clearFocus()
-                                action.action()
-                                onDismiss()
+                                scope.launch {
+                                    onDismiss()
+                                    action.action()
+                                }
                             },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFF1966FF),

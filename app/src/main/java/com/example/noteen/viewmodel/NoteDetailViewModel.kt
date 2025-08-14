@@ -10,66 +10,77 @@ import com.example.noteen.TextEditorEngine
 import com.example.noteen.data.LocalRepository.AppDatabase
 import com.example.noteen.data.LocalRepository.entity.NoteEntity
 import com.example.noteen.data.LocalRepository.reposity.NoteRepository
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class NoteDetailViewModel(
-    application: Application,
-    private val noteId: Int
-) : AndroidViewModel(application) {
+class NoteDetailViewModel(application: Application) : AndroidViewModel(application) {
 
     private val noteRepository = NoteRepository(AppDatabase.getInstance(application).noteDao())
 
     private val _selectedNote = MutableStateFlow<NoteEntity?>(null)
     val selectedNote: StateFlow<NoteEntity?> = _selectedNote.asStateFlow()
 
-    fun getSelectedNote() {
-        viewModelScope.launch {
-            _selectedNote.value = noteRepository.getNoteById(noteId)
-            _selectedNote.value?.let {
-                TextEditorEngine.setContent(it.name, it.content)
-                Log.i("DBTest", "Note: ${it.name}  ${it.content}  ${it.plaintext}")
-                Log.i("DBTest", "Set content - title: ${TextEditorEngine.titleString.value} - content: ${TextEditorEngine.jsonContent.value} - plain: ${TextEditorEngine.plainTextContent.value}")
-            }
-        }
+    suspend fun getSelectedNote(id: Int): NoteEntity? {
+        val note = noteRepository.getNoteById(id)
+        return note
     }
 
-    init {
-        getSelectedNote()
-    }
-
-    fun saveNote() {
-        TextEditorEngine.refreshContentFromWeb()
-
+    fun loadNote(note: NoteEntity) {
         TextEditorEngine.reset()
+        _selectedNote.value = note
+        _selectedNote.value?.let {
+            TextEditorEngine.setContent(it.name, it.content)
+            Log.d("TextEditor", "Selected note: ${it.content}")
+        }
+        Log.i("vminit", "New note id: ${_selectedNote.value!!.id}")
     }
 
-    fun updateNote(note: NoteEntity) {
-        viewModelScope.launch {
-            noteRepository.updateNote(note)
-            _selectedNote.value = note
+    suspend fun updateNote(note: NoteEntity) {
+        noteRepository.updateNote(note)
+    }
+    
+    suspend fun deleteNote() {
+        _selectedNote.value?.let {
+            noteRepository.deleteNoteById(it.id)
         }
     }
 
-    fun deleteNote() {
-        viewModelScope.launch {
-            _selectedNote.value?.let {
-                if (it.name == "" && it.content == "") noteRepository.deleteNoteById(it.id)
+    suspend fun saveTextEditorData(title: String, json: String, plaintext: String) {
+        if (title.trim() == "" && (json == "" || json == "{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"attrs\":{\"textAlign\":null}}]}")) {
+            deleteNote()
+            return
+        }
+        _selectedNote.value?.let {
+            if (title != it.name || json != it.content) {
+                updateNote(it.copy(name = title, content = json, plaintext = plaintext, updatedAt = System.currentTimeMillis()))
             }
         }
     }
-}
 
-class NoteDetailViewModelFactory(
-    private val application: Application,
-    private val noteId: Int
-) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(NoteDetailViewModel::class.java)) {
-            return NoteDetailViewModel(application, noteId) as T
+    suspend fun saveDrawingNote(content: String, thumbnail: String) {
+        if (content == "{\"strokes\":[]}") {
+            deleteNote()
         }
-        throw IllegalArgumentException("Unknown ViewModel class")
+        _selectedNote.value?.let {
+            if (content != it.content) {
+                updateNote(it.copy(content = content, thumbnail = thumbnail, updatedAt = System.currentTimeMillis()))
+                Log.d("TextEditor", "Updated id ${it.id}")
+            }
+        }
+    }
+
+    suspend fun saveTextNote() {
+        val (title, json, plain) = TextEditorEngine.waitForContentUpdate()
+        saveTextEditorData(title, json, plain)
+    }
+
+    suspend fun softDeleteNote() {
+        _selectedNote.value?.let {
+            noteRepository.softDeleteNoteById(it.id)
+        }
+        _selectedNote.value = null
     }
 }

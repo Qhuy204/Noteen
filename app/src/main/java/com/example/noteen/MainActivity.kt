@@ -8,6 +8,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.annotation.RequiresApi
 import com.example.noteen.ui.theme.NoteenTheme
 import com.example.noteen.data.LocalFileManager.FileManager
+import com.example.noteen.modulartest.TestNavigator
 import com.example.noteen.ui.screen.DrawingScreen
 import com.example.noteen.ui.screen.NoteEditorScreen
 import com.example.noteen.ui.screen.NotesScreen
@@ -17,6 +18,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        SettingLoader.init(this)
         FileManager.init(applicationContext)
         TextEditorEngine.init(this)
 
@@ -25,9 +27,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             NoteenTheme {
-                AppNavigator()
-
-//                DrawingScreen()
+//                AppNavigator()
+                TestNavigator()
             }
         }
     }

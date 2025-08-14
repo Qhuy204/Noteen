@@ -42,17 +42,21 @@ interface FolderDao {
     @Query(
         """
     SELECT 'All' AS name, COUNT(*) AS count FROM notes
+    WHERE is_deleted = 0
     UNION ALL
-    SELECT f.name AS name, COUNT(n.id) AS count
-    FROM folders f
-    LEFT JOIN notes n ON f.id = n.folder_id
-    GROUP BY f.id
+    SELECT name, count FROM (
+        SELECT f.name AS name, COUNT(n.id) AS count
+        FROM folders f
+        LEFT JOIN notes n ON f.id = n.folder_id AND is_deleted = 0
+        GROUP BY f.id
+        ORDER BY f.created_at DESC
+    )
     UNION ALL
     SELECT * FROM (
         SELECT 'Uncategorized' AS name, COUNT(*) AS count
         FROM notes
-        WHERE folder_id IS NULL
-    ) 
+        WHERE folder_id IS NULL AND is_deleted = 0
+    )
     WHERE EXISTS (SELECT 1 FROM folders)
     """
     )

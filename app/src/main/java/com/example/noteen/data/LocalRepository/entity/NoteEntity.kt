@@ -13,7 +13,7 @@ import androidx.room.PrimaryKey
             entity = FolderEntity::class,
             parentColumns = ["id"],
             childColumns = ["folder_id"],
-            onDelete = ForeignKey.CASCADE
+            onDelete = ForeignKey.SET_NULL
         )
     ],
     indices = [Index("folder_id")]
@@ -42,5 +42,14 @@ data class NoteEntity(
     val createdAt: Long = System.currentTimeMillis(),
 
     @ColumnInfo(name = "updated_at")
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+
+    @ColumnInfo(name = "pinned_at")
+    val pinnedAt: Long? = null,
+
+    @ColumnInfo(name = "is_locked")
+    val isLocked: Boolean = false,
+
+    @ColumnInfo(name = "is_deleted")
+    val isDeleted: Boolean = false
 )

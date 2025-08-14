@@ -51,30 +51,7 @@ import com.example.noteen.data.LocalFileManager.FileManager
 import com.example.noteen.ui.component.PressEffectIconButton
 import com.example.noteen.ui.component.TextToolbar
 import com.example.noteen.viewmodel.NoteDetailViewModel
-import com.example.noteen.viewmodel.NoteDetailViewModelFactory
 import org.json.JSONObject
-
-@Composable
-fun keyboardAsState(): State<Boolean> {
-    val density = LocalDensity.current
-    val imeTop = WindowInsets.ime.getTop(density)
-    val imeBottom = WindowInsets.ime.getBottom(density)
-    val imeHeight = imeBottom - imeTop
-
-    val prevHeight = remember { mutableStateOf(imeHeight) }
-    val isVisible = remember { mutableStateOf(false) }
-
-    LaunchedEffect(imeHeight) {
-        if (imeHeight > prevHeight.value) {
-            isVisible.value = true
-        } else if (imeHeight < prevHeight.value) {
-            isVisible.value = false
-        }
-        prevHeight.value = imeHeight
-    }
-
-    return isVisible
-}
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -104,8 +81,6 @@ fun NoteEditorScreen(
     }
 
     fun saveNote() {
-//        viewModel.saveNote()
-        viewModel.deleteNote()
     }
 
     LaunchedEffect(isKeyboardVisible) {

@@ -2,9 +2,13 @@ package com.example.noteen.viewmodel
 
 import android.app.Application
 import android.util.Log
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.noteen.SettingLoader
 import com.example.noteen.TextEditorEngine
 import com.example.noteen.data.LocalRepository.AppDatabase
 import com.example.noteen.data.LocalRepository.entity.FolderEntity
@@ -26,18 +30,27 @@ class NoteListViewModel(application: Application) : AndroidViewModel(application
     private val noteRepository: NoteRepository
     private val folderRepository: FolderRepository
 
-
-    private val _id = MutableStateFlow(0)
-    val id: StateFlow<Int> = _id.asStateFlow()
-
     private val _selectedNote = MutableStateFlow<NoteEntity?>(null)
     val selectedNote: StateFlow<NoteEntity?> = _selectedNote.asStateFlow()
 
     suspend fun getSelectedNote(id: Int): NoteEntity? {
         val note = noteRepository.getNoteById(id)
-        _selectedNote.value = note
         return note
     }
+
+    fun selectNote(note: NoteEntity?) {
+        viewModelScope.launch {
+            if (note != null) {
+                _selectedNote.value = note
+                delay(200)
+                _showOverlay.value = true
+            }
+            else {
+                _showOverlay.value = false
+            }
+        }
+    }
+
     fun updateNote(note: NoteEntity) {
         viewModelScope.launch {
             noteRepository.updateNote(note)
@@ -60,12 +73,9 @@ class NoteListViewModel(application: Application) : AndroidViewModel(application
     val showOverlay: StateFlow<Boolean> = _showOverlay.asStateFlow()
 
     fun setId(newId: Int) {
-        Log.d("TextEditor", "ID: $newId")
-        _id.value = newId
         viewModelScope.launch {
             if (newId != 0) {
                 TextEditorEngine.reset()
-                getSelectedNote(newId)
                 _selectedNote.value?.let {
                     TextEditorEngine.setContent(it.name, it.content)
                     Log.d("TextEditor", "Selected note: ${it.id}")
@@ -75,22 +85,6 @@ class NoteListViewModel(application: Application) : AndroidViewModel(application
                 _showOverlay.value = true
             } else {
                 _showOverlay.value = false
-            }
-        }
-    }
-    fun saveEditorData(title: String, json: String, plaintext: String) {
-        if (title.trim() == "" && (json == "" || json == "{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"attrs\":{\"textAlign\":null}}]}")) {
-            deleteNote()
-            loadNotes()
-            Log.d("TextEditor", "Deleted")
-            return
-        }
-
-        _selectedNote.value?.let {
-
-            if (title != it.name || json != it.content) {
-                updateNote(it.copy(name = title, content = json, plaintext = plaintext, updatedAt = System.currentTimeMillis()))
-                Log.d("TextEditor", "Updated id ${it.id}")
             }
         }
     }
@@ -109,19 +103,12 @@ class NoteListViewModel(application: Application) : AndroidViewModel(application
 
     fun hideOverlay() {
         _showOverlay.value = false
+        loadNotes()
     }
 
 
     private val _folderTags = MutableStateFlow<List<FolderTag>>(emptyList())
     val folderTags: StateFlow<List<FolderTag>> = _folderTags.asStateFlow()
-
-    private val _selectedFolderName = MutableStateFlow("All")
-    val selectedFolderName = _selectedFolderName.asStateFlow()
-
-    fun selectFolder(name: String) {
-        _selectedFolderName.value = name
-        loadNotes()
-    }
 
     fun loadFolderTags() {
         viewModelScope.launch {
@@ -134,7 +121,7 @@ class NoteListViewModel(application: Application) : AndroidViewModel(application
             val folder = FolderEntity(name = name, description = description)
             folderRepository.insertFolder(folder)
             loadFolderTags()
-            selectFolder(name)
+            updateCurrentFolder(name)
         }
     }
 
@@ -144,18 +131,34 @@ class NoteListViewModel(application: Application) : AndroidViewModel(application
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    private val _isGridLayout = MutableStateFlow(true)
-    val isGridLayout = _isGridLayout.asStateFlow()
+    var currentFolder by mutableStateOf(SettingLoader.currentFolder)
+        private set
 
-    fun toggleLayout() {
-        _isGridLayout.value = !_isGridLayout.value
+    fun updateCurrentFolder(folderName: String) {
+        SettingLoader.updateCurrentFolder(folderName)
+        currentFolder = folderName
+        loadNotes()
     }
 
-    private val _sortMode = MutableStateFlow(0)
-    val sortMode = _sortMode.asStateFlow()
+    var isGridLayout by mutableStateOf(SettingLoader.notesIsGridLayout)
+        private set
+    var sortMode by mutableStateOf(SettingLoader.notesSortMode)
+        private set
 
-    fun setSortMode(mode: Int) {
-        _sortMode.value = mode
+    fun updateGridLayout(value: Boolean) {
+        SettingLoader.updateNotesIsGridLayout(value)
+        isGridLayout = value
+    }
+
+    fun updateSortMode(value: Int) {
+        SettingLoader.updateNotesSortMode(value)
+        sortMode = value
+        loadNotes()
+    }
+
+    fun loadData() {
+        loadFolderTags()
+        currentFolder = SettingLoader.currentFolder
         loadNotes()
     }
 
@@ -164,14 +167,15 @@ class NoteListViewModel(application: Application) : AndroidViewModel(application
         noteRepository = NoteRepository(db.noteDao())
         folderRepository = FolderRepository(db.folderDao())
 
-        loadFolderTags()
-        loadNotes()
+        loadData()
+
+        Log.i("vminit","Notes init")
     }
 
     fun loadNotes() {
         viewModelScope.launch {
             _isLoading.value = true
-            _notes.value = noteRepository.getNotesByFolderName(_selectedFolderName.value, _sortMode.value)
+            _notes.value = noteRepository.getNotesByFolderName(currentFolder, sortMode)
             _isLoading.value = false
         }
     }
@@ -185,12 +189,12 @@ class NoteListViewModel(application: Application) : AndroidViewModel(application
     }
 
     suspend fun insertNote(note: NoteEntity): Long {
-        return noteRepository.insertNote(note, _selectedFolderName.value)
+        return noteRepository.insertNote(note, currentFolder)
     }
 
-    fun deleteNote(id: Int) {
+    fun softDeleteNote(id: Int) {
         viewModelScope.launch {
-            noteRepository.deleteNoteById(id)
+            noteRepository.softDeleteNoteById(id)
             loadNotes()
         }
     }

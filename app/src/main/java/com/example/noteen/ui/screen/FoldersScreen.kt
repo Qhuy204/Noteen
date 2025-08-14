@@ -2,12 +2,16 @@ package com.example.noteen.ui.screen
 
 import android.app.Application
 import android.os.Build
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +28,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
@@ -35,6 +40,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,11 +57,13 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.noteen.R
+import com.example.noteen.SettingLoader
 import com.example.noteen.data.LocalRepository.entity.FolderEntity
 import com.example.noteen.data.model.ConfirmAction
 import com.example.noteen.ui.component.FolderCard
@@ -63,35 +71,41 @@ import com.example.noteen.ui.component.SearchBar
 import com.example.noteen.ui.component.SortAndLayoutToggle
 import com.example.noteen.ui.component.contextmenu.ContextMenuItem
 import com.example.noteen.ui.component.contextmenu.FloatingContextMenu
-import com.example.noteen.ui.component.contextmenu.MenuState
 import com.example.noteen.ui.component.dialog.ConfirmDialog
 import com.example.noteen.ui.component.dialog.CreateFolderDialog
 import com.example.noteen.utils.formatNoteDate
 import com.example.noteen.utils.formatTimestamp
-import com.example.noteen.viewmodel.FolderViewModel
+import com.example.noteen.viewmodel.FolderListViewModel
 import kotlinx.coroutines.launch
+
+data class MenuState(
+    val isVisible: Boolean = false,
+    val offset: DpOffset = DpOffset(0.dp, 0.dp),
+    val itemId: Int? = null
+)
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun FoldersScreen(onGoBack: () -> Unit = {}) {
     val context = LocalContext.current
-    val viewModel: FolderViewModel = viewModel(factory = ViewModelProvider.AndroidViewModelFactory(context.applicationContext as Application))
+    val viewModel: FolderListViewModel = viewModel(factory = ViewModelProvider.AndroidViewModelFactory(context.applicationContext as Application))
     val folders by viewModel.folders.collectAsState()
-    val sortMode by viewModel.sortMode.collectAsState()
     val selectedFolder by viewModel.selectedFolder.collectAsState()
 
-    viewModel.loadFolders()
-
-    var isGridLayout by remember { mutableStateOf(true) }
+    val isGridLayout = viewModel.isGridLayout
+    val sortMode = viewModel.sortMode
 
     var menuState by remember { mutableStateOf(MenuState()) }
 
     var showCreateCollectionDialog by remember { mutableStateOf(false) }
 
+    var showOverlay by remember { mutableStateOf(false) }
+
 
     BackHandler {
+        if (!showOverlay) onGoBack()
         if (menuState.isVisible) menuState = menuState.copy(isVisible = false)
-        onGoBack()
+        if (showOverlay) showOverlay = false
     }
 
     /// For Collapsing Header
@@ -224,7 +238,7 @@ fun FoldersScreen(onGoBack: () -> Unit = {}) {
                     Icon(
                         painter = painterResource(id = R.drawable.arrow_left),
                         tint = Color.Black,
-                        contentDescription = "More options"
+                        contentDescription = "Back"
                     )
                 }
                 Box(modifier = Modifier.weight(1f)) {
@@ -232,6 +246,13 @@ fun FoldersScreen(onGoBack: () -> Unit = {}) {
                         text = "Folders",
                         modifier = Modifier,
                         style = MaterialTheme.typography.headlineSmall,
+                    )
+                }
+                IconButton(onClick = { showOverlay = true }) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.bin),
+                        tint = Color.Black,
+                        contentDescription = "Bin"
                     )
                 }
             }
@@ -253,12 +274,11 @@ fun FoldersScreen(onGoBack: () -> Unit = {}) {
                     selectedSortType = sortMode,
                     isGridLayout = isGridLayout,
                     onSortTypeClick = {
-                        viewModel.currentSortMode = (sortMode + 1) % 3
+                        viewModel.updateSortMode((sortMode + 1) % 3)
                     },
                     onLayoutToggleClick = {
-                        isGridLayout = !isGridLayout
-                    },
-                    modifier = Modifier.fillMaxSize()
+                        viewModel.updateGridLayout(!isGridLayout)
+                    }
                 )
             }
             Crossfade(
@@ -276,6 +296,9 @@ fun FoldersScreen(onGoBack: () -> Unit = {}) {
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            Spacer(Modifier.height(0.dp))
+                        }
                         items(folders, key = { it.id }) { folder ->
                             FolderCard(
                                 modifier = Modifier.animateItem(),
@@ -285,6 +308,10 @@ fun FoldersScreen(onGoBack: () -> Unit = {}) {
                                 iconName = folder.description,
                                 onMenuButtonClick = { id, offset ->
                                     menuState = MenuState(true, offset, id)
+                                },
+                                onCardClick = {
+                                    SettingLoader.updateCurrentFolder(folder.name)
+                                    onGoBack()
                                 }
                             )
                         }
@@ -297,6 +324,9 @@ fun FoldersScreen(onGoBack: () -> Unit = {}) {
                         modifier = Modifier.fillMaxWidth().weight(1f),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        item {
+                            Spacer(Modifier.height(0.dp))
+                        }
                         items(folders, key = { it.id }) { folder ->
                             FolderCard(
                                 modifier = Modifier.animateItem(),
@@ -307,6 +337,10 @@ fun FoldersScreen(onGoBack: () -> Unit = {}) {
                                 isGridLayout = false,
                                 onMenuButtonClick = { id, offset ->
                                     menuState = MenuState(true, offset, id)
+                                },
+                                onCardClick = {
+                                    SettingLoader.updateCurrentFolder(folder.name)
+                                    onGoBack()
                                 }
                             )
                         }
@@ -347,11 +381,26 @@ fun FoldersScreen(onGoBack: () -> Unit = {}) {
         }
         FloatingContextMenu(
             visible = menuState.isVisible,
-            offset = menuState.offset,
+            offset = DpOffset(menuState.offset.x - 80.dp, menuState.offset.y - 40.dp),
             onDismiss = { menuState = menuState.copy(isVisible = false) },
         ) {
             ContextMenuItem("Edit", R.drawable.pencil, width = 120.dp, onClick = { editFolder() }, contentColor = Color(0xFF1966FF))
             ContextMenuItem("Delete", R.drawable.trash, width = 120.dp, onClick = { deleteFolder() }, contentColor = Color.Red)
         }
+    }
+    AnimatedVisibility(
+        visible = showOverlay,
+        enter = slideInHorizontally(
+            initialOffsetX = { fullWidth -> fullWidth },
+            animationSpec = tween(durationMillis = 300)
+        ),
+        exit = slideOutHorizontally(
+            targetOffsetX = { fullWidth -> fullWidth },
+            animationSpec = tween(durationMillis = 400)
+        )
+    ) {
+        RecycleBinScreen(
+            onGoBack =  { showOverlay = false }
+        )
     }
 }

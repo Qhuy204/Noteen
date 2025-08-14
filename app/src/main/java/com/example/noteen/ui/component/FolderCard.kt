@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
@@ -36,6 +37,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpOffset
 import com.example.noteen.R
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @SuppressLint("RememberReturnType")
 @Composable
@@ -47,6 +50,7 @@ fun FolderCard(
     iconName: String,
     isGridLayout: Boolean = true,
     onCardClick: () -> Unit = {},
+    onCardLongPress: () -> Unit = {},
     onMenuButtonClick: (id: Int, offset: DpOffset) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
@@ -67,24 +71,27 @@ fun FolderCard(
 
     var iconButtonCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
 
+    val scope = rememberCoroutineScope()
+
     Box(
         modifier = modifier
             .fillMaxWidth()
             .scale(scale)
             .background(Color.White, shape = RoundedCornerShape(16.dp))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) {
-                onCardClick()
-            }
             .pointerInput(Unit) {
                 detectTapGestures(
                     onPress = {
                         isPressed = true
                         tryAwaitRelease()
                         isPressed = false
-                    }
+                    },
+                    onTap = {
+                        scope.launch {
+                            delay(200)
+                            onCardClick()
+                        }
+                    },
+                    onLongPress = { onCardLongPress() }
                 )
             }
             .padding(20.dp)
@@ -101,13 +108,13 @@ fun FolderCard(
                     onClick = {
                         iconButtonCoordinates?.let { coords ->
                             val pxOffset = coords.localToRoot(Offset.Zero)
-                            val dpOffset = with(density) { toDpOffset(pxOffset) }
+                            val dpOffset = with(density) { DpOffset(pxOffset.x.toDp(), pxOffset.y.toDp()) }
                             onMenuButtonClick(id, dpOffset)
                         }
                     },
-                    modifier = Modifier.fillMaxSize().onGloballyPositioned { coordinates ->
-                        iconButtonCoordinates = coordinates
-                    }
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .onGloballyPositioned { coordinates -> iconButtonCoordinates = coordinates }
                 ) {
                     Icon(
                         painter = painterResource(id = R.drawable.ellipsis_vertical),
@@ -175,19 +182,18 @@ fun FolderCard(
                         color = Color.Gray
                     )
                 }
+
                 IconButton(
                     onClick = {
                         iconButtonCoordinates?.let { coords ->
                             val pxOffset = coords.localToRoot(Offset.Zero)
-                            val dpOffset = with(density) { toDpOffset(pxOffset) }
+                            val dpOffset = with(density) { DpOffset(pxOffset.x.toDp(), pxOffset.y.toDp()) }
                             onMenuButtonClick(id, dpOffset)
                         }
                     },
                     modifier = Modifier
                         .size(36.dp)
-                        .onGloballyPositioned { coordinates ->
-                            iconButtonCoordinates = coordinates
-                        }
+                        .onGloballyPositioned { coordinates -> iconButtonCoordinates = coordinates }
                 ) {
                     Icon(
                         painter = painterResource(id = R.drawable.ellipsis_vertical),
@@ -199,6 +205,7 @@ fun FolderCard(
         }
     }
 }
+
 
 fun Density.toDpOffset(offset: Offset): DpOffset {
     return DpOffset(offset.x.toDp(), offset.y.toDp())

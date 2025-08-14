@@ -71,7 +71,7 @@ data class Note(
 fun NoteCard(
     modifier: Modifier = Modifier,
     note: NoteEntity,
-    onClick: (Int) -> Unit = {},
+    onClick: (NoteEntity) -> Unit = {},
     onLongPress: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -97,7 +97,7 @@ fun NoteCard(
                                 scale.animateTo(0.96f, animationSpec = tween(100))
                                 scale.animateTo(1f, animationSpec = tween(150, easing = FastOutSlowInEasing))
                             }
-                            onClick(note.id)
+                            onClick(note)
                         },
                         onLongPress = {
                             coroutineScope.launch {
@@ -300,7 +300,7 @@ fun getSampleNoteEntities(): List<NoteEntity> {
 fun NoteCard2(
     modifier: Modifier = Modifier,
     note: NoteEntity,
-    onClick: (Int) -> Unit
+    onClick: (NoteEntity) -> Unit
 ) {
     val context = LocalContext.current
     val displayDate = remember(note.createdAt) {
@@ -354,13 +354,6 @@ fun NoteCard2(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Color.White, shape = RoundedCornerShape(16.dp))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) {
-                        Log.i("TEST", "Clicked")
-                        onClick(note.id)
-                    }
                     .pointerInput(Unit) {
                         detectTapGestures(
                             onPress = {
@@ -369,7 +362,7 @@ fun NoteCard2(
                                 isPressed = false
 
                                 if (released) {
-                                    onClick(note.id)
+                                    onClick(note)
                                 }
                             }
                         )

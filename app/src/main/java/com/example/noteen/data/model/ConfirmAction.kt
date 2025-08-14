@@ -5,5 +5,5 @@ data class ConfirmAction(
     val message: String,
     val confirmButtonText: String = "Yes",
     val cancelButtonText: String = "No",
-    val action: () -> Unit
+    val action: suspend () -> Unit
 )

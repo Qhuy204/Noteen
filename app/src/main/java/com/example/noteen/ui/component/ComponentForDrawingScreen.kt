@@ -18,12 +18,21 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.example.noteen.R
@@ -99,9 +108,13 @@ fun ToolOverlay(
     onUndoClick: () -> Unit,
     onRedoClick: () -> Unit,
     onSettingClick: () -> Unit,
-    onToolClick: (Int) -> Unit,
+    onToolClick: (Int, DpOffset) -> Unit,  // Thay đổi đây
 ) {
-    Box(modifier = Modifier.fillMaxSize().zIndex(1f)) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .zIndex(1f)
+    ) {
         ActionBar(
             buttons = listOf(
                 ActionButton(iconRes = R.drawable.cv_home, contentDescription = "Home", onClick = onHomeClick)
@@ -142,10 +155,17 @@ fun ToolOverlay(
             R.drawable.cv_sticker,
             R.drawable.cv_selection
         )
+
+        // Lưu LayoutCoordinates của root Box
+        var rootCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(bottom = 15.dp)
+                .onGloballyPositioned { coordinates ->
+                    rootCoordinates = coordinates
+                }
         ) {
             Surface(
                 modifier = Modifier
@@ -165,9 +185,16 @@ fun ToolOverlay(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
+                    val density = LocalDensity.current
                     icons.forEachIndexed { index, iconRes ->
+                        var buttonCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+
                         PressEffectIconButton(
-                            onClick = { onToolClick(index) },
+                            modifier = Modifier
+                                .size(44.dp)
+                                .onGloballyPositioned { coords ->
+                                    buttonCoordinates = coords
+                                },
                             selected = selectedButtonIndex == index,
                             icon = painterResource(iconRes),
                             selectedIconColor = Color(0xFF1966FF),
@@ -175,7 +202,17 @@ fun ToolOverlay(
                             unselectedIconColor = Color.DarkGray,
                             iconPadding = 10.dp,
                             cornerShape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.size(44.dp)
+                            onClick = {
+                                val offset = if (rootCoordinates != null && buttonCoordinates != null) {
+                                    val positionInRoot = buttonCoordinates!!.positionInRoot()
+                                    with(density) {
+                                        DpOffset(positionInRoot.x.toDp(), positionInRoot.y.toDp())
+                                    }
+                                } else {
+                                    DpOffset(0.dp, 0.dp)
+                                }
+                                onToolClick(index, offset)
+                            }
                         )
                     }
                 }

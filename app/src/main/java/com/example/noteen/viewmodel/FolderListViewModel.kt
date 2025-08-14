@@ -1,33 +1,43 @@
 package com.example.noteen.viewmodel
 
 import android.app.Application
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.noteen.SettingLoader
 import com.example.noteen.data.LocalRepository.AppDatabase
 import com.example.noteen.data.LocalRepository.entity.FolderEntity
 import com.example.noteen.data.LocalRepository.reposity.FolderRepository
-import com.example.noteen.data.model.FolderTag
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class FolderViewModel(application: Application) : AndroidViewModel(application) {
+class FolderListViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: FolderRepository
 
     private val _folders = MutableStateFlow<List<FolderEntity>>(emptyList())
     val folders: StateFlow<List<FolderEntity>> = _folders.asStateFlow()
 
-    private val _sortMode = MutableStateFlow(0)
-    val sortMode: StateFlow<Int> = _sortMode.asStateFlow()
+    var isGridLayout by mutableStateOf(SettingLoader.foldersIsGridLayout)
+        private set
+    var sortMode by mutableStateOf(SettingLoader.foldersSortMode)
+        private set
 
-    var currentSortMode: Int
-        get() = _sortMode.value
-        set(value) {
-            _sortMode.value = value
-            loadFolders(value)
-        }
+    fun updateGridLayout(value: Boolean) {
+        SettingLoader.updateFoldersIsGridLayout(value)
+        isGridLayout = value
+    }
+
+    fun updateSortMode(value: Int) {
+        SettingLoader.updateFoldersSortMode(value)
+        sortMode = value
+        loadFolders()
+    }
 
     private val _selectedFolder = MutableStateFlow<FolderEntity?>(null)
     val selectedFolder: StateFlow<FolderEntity?> = _selectedFolder.asStateFlow()
@@ -43,26 +53,20 @@ class FolderViewModel(application: Application) : AndroidViewModel(application) 
         _selectedFolder.value = null
     }
 
-    private val _folderTags = MutableStateFlow<List<FolderTag>>(emptyList())
-    val folderTags: StateFlow<List<FolderTag>> = _folderTags.asStateFlow()
-
-    fun loadFolderTags() {
-        viewModelScope.launch {
-            _folderTags.value = repository.getFolderTagsWithCounts()
-        }
-    }
-
     init {
         val dao = AppDatabase.getInstance(application).folderDao()
         repository = FolderRepository(dao)
-        loadFolders()
-        loadFolderTags()
+
+        viewModelScope.launch {
+            delay(420)
+            loadFolders()
+        }
     }
 
-    fun loadFolders(mode: Int = _sortMode.value) {
+
+    fun loadFolders() {
         viewModelScope.launch {
-            _sortMode.value = mode
-            val data = repository.getAllFolders(mode)
+            val data = repository.getAllFolders(sortMode)
             _folders.value = data
         }
     }
@@ -72,7 +76,6 @@ class FolderViewModel(application: Application) : AndroidViewModel(application) 
             val folder = FolderEntity(name = name, description = description)
             repository.insertFolder(folder)
             loadFolders()
-            loadFolderTags()
         }
     }
 
@@ -80,7 +83,6 @@ class FolderViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             repository.updateFolder(folder)
             loadFolders()
-            loadFolderTags()
         }
     }
 
@@ -88,15 +90,14 @@ class FolderViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             repository.deleteFolderById(folderId)
             loadFolders()
-            loadFolderTags()
         }
+        SettingLoader.updateCurrentFolder("All")
     }
 
     fun lockFolder(folderId: Int, locked: Boolean) {
         viewModelScope.launch {
             repository.lockFolder(folderId, locked)
             loadFolders()
-            loadFolderTags()
         }
     }
 

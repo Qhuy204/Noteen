@@ -1,5 +1,6 @@
 package com.example.noteen.ui.screen
 
+import android.app.Application
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -30,13 +32,18 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -47,27 +54,63 @@ import com.example.noteen.TextEditorEngine
 import com.example.noteen.data.LocalFileManager.FileManager
 import com.example.noteen.ui.component.PressEffectIconButton
 import com.example.noteen.ui.component.TextToolbar
-import com.example.noteen.ui.component.bottomsheet.BackGroundPickerBottomSheet
+import com.example.noteen.ui.component.bottomsheet.NoteBackGroundPickerBottomSheet
 import kotlinx.coroutines.delay
 import org.json.JSONObject
 import androidx.core.graphics.toColorInt
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.noteen.data.LocalRepository.entity.NoteEntity
 import com.example.noteen.data.model.ConfirmAction
 import com.example.noteen.ui.component.contextmenu.ContextMenuItem
-import com.example.noteen.ui.component.contextmenu.TextNoteContextMenu
+import com.example.noteen.ui.component.contextmenu.AnchoredContextMenu
 import com.example.noteen.ui.component.dialog.ConfirmDialog
 import com.example.noteen.ui.component.dialog.SelectFolderDialog
+import com.example.noteen.viewmodel.NoteDetailViewModel
+import kotlinx.coroutines.launch
+
+@Composable
+fun keyboardAsState(): State<Boolean> {
+    val density = LocalDensity.current
+    val imeTop = WindowInsets.ime.getTop(density)
+    val imeBottom = WindowInsets.ime.getBottom(density)
+    val imeHeight = imeBottom - imeTop
+
+    val prevHeight = remember { mutableStateOf(imeHeight) }
+    val isVisible = remember { mutableStateOf(false) }
+
+    LaunchedEffect(imeHeight) {
+        if (imeHeight > prevHeight.value) {
+            isVisible.value = true
+        } else if (imeHeight < prevHeight.value) {
+            isVisible.value = false
+        }
+        prevHeight.value = imeHeight
+    }
+
+    return isVisible
+}
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun OverlyTextEditor(
-    noteId: Int = 0,
+fun OverlayTextEditor(
+    viewModel: NoteDetailViewModel,
+    selectedNote: NoteEntity,
     onGoBack: () -> Unit = {}
 ) {
+    //Work with ViewModel
+    LaunchedEffect(Unit) {
+        viewModel.loadNote(selectedNote)
+    }
+    val note by viewModel.selectedNote.collectAsState()
+    //
+
     val blueColor = Color(0xFF1966FF)
     val blackColor = Color.DarkGray
 
     val keyboardController = LocalSoftwareKeyboardController.current
     val isKeyboardVisible by keyboardAsState()
+
+    val scope = rememberCoroutineScope()
 
     val shouldShowToolbar by TextEditorEngine.shouldShowToolbar
     val buttonStatesJson by TextEditorEngine.buttonStatesJson
@@ -140,36 +183,25 @@ fun OverlyTextEditor(
 
     var selectedColor by remember { mutableStateOf(colorPairs[0].first) }
 
-    if (showBottomSheet) {
-        BackGroundPickerBottomSheet(
-            colorPairs = colorPairs,
-            selectedColor = selectedColor,
-            onColorSelected = {
-                selectedColor = it
-                showBottomSheet = false
-            },
-            onDismiss = { showBottomSheet = false }
-        )
-    }
+    NoteBackGroundPickerBottomSheet(
+        visible = showBottomSheet,
+        colorPairs = colorPairs,
+        selectedColor = selectedColor,
+        onColorSelected = {
+            selectedColor = it
+            showBottomSheet = false
+        },
+        onDismiss = { showBottomSheet = false }
+    )
 
     var showMenuContext by remember { mutableStateOf(false) }
 
     fun pinNote() {
         showMenuContext = false
-        confirmAction = ConfirmAction(
-            title = "Pin Note",
-            message = "Are you sure you want to pin this note?",
-            action = {  }
-        )
     }
 
     fun uncategorizeNote() {
         showMenuContext = false
-        confirmAction = ConfirmAction(
-            title = "Uncategorize Note",
-            message = "Are you sure you want to uncategorize this note?",
-            action = {  }
-        )
     }
 
     fun showSelectFolderDialog() {
@@ -191,14 +223,16 @@ fun OverlyTextEditor(
         confirmAction = ConfirmAction(
             title = "Delete Note",
             message = "Are you sure you want to delete this note?",
-            action = {  }
+            action = {
+                viewModel.softDeleteNote()
+                onGoBack()
+            }
         )
     }
 
-    TextNoteContextMenu(
+    AnchoredContextMenu(
         visible = showMenuContext,
-        onDismiss = { showMenuContext = false },
-        dimBackground = true
+        onDismiss = { showMenuContext = false }
     ) {
         ContextMenuItem("Pin", R.drawable.pin, onClick = { pinNote() })
         ContextMenuItem("Uncategorize", R.drawable.folder_open, onClick = { uncategorizeNote() })
@@ -208,7 +242,10 @@ fun OverlyTextEditor(
     }
 
     BackHandler {
-        if (!showBottomSheet && !showMenuContext) onGoBack()
+        if (!showBottomSheet && !showMenuContext) scope.launch {
+            viewModel.saveTextNote()
+            onGoBack()
+        }
         if (showBottomSheet) showBottomSheet = false
         if (showMenuContext) showMenuContext = false
     }
@@ -247,7 +284,10 @@ fun OverlyTextEditor(
                     PressEffectIconButton(
                         onClick = {
                             keyboardController?.hide()
-                            onGoBack()
+                            scope.launch {
+                                viewModel.saveTextNote()
+                                onGoBack()
+                            }
                         },
                         icon = painterResource(id = R.drawable.chevron_left),
                         unselectedIconColor = blueColor,

@@ -17,8 +17,36 @@ class NoteRepository(private val noteDao: NoteDao) {
         noteDao.deleteById(id)
     }
 
+    suspend fun softDeleteNoteById(id: Int) {
+        noteDao.softDeleteById(id)
+    }
+
+    suspend fun restoreNote(id: Int) {
+        noteDao.restore(id)
+    }
+
+    suspend fun getDeletedNotes(): List<NoteEntity> {
+        return noteDao.getAllDeletedNotes()
+    }
+
     suspend fun getNoteById(id: Int): NoteEntity? {
         return noteDao.getNoteById(id)
+    }
+
+    suspend fun setNotePinned(noteId: Int, pinned: Boolean) {
+        noteDao.setPinned(noteId, pinned)
+    }
+
+    suspend fun setNoteLocked(noteId: Int, locked: Boolean) {
+        noteDao.setLocked(noteId, locked)
+    }
+
+    suspend fun searchNotes(query: String): List<NoteEntity> {
+        return noteDao.searchNotes(query)
+    }
+
+    suspend fun updateNoteFolder(noteId: Int, newFolderName: String?) {
+        noteDao.updateFolderByName(noteId, newFolderName)
     }
 
     suspend fun getNotesByFolderName(folderName: String, sortMode: Int): List<NoteEntity> {
@@ -42,13 +70,5 @@ class NoteRepository(private val noteDao: NoteDao) {
                 else -> noteDao.getNotesByFolderNameSortedByUpdated(folderName)
             }
         }
-    }
-
-    suspend fun searchNotes(query: String): List<NoteEntity> {
-        return noteDao.searchNotes(query)
-    }
-
-    suspend fun updateNoteFolder(noteId: Int, newFolderName: String?) {
-        noteDao.updateFolderByName(noteId, newFolderName)
     }
 }

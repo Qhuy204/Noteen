@@ -10,7 +10,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -45,15 +44,15 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 
 @Composable
-fun TextNoteContextMenu(
+fun AnchoredContextMenu(
     modifier: Modifier = Modifier,
     visible: Boolean,
-    dimBackground: Boolean = true,
     onDismiss: () -> Unit,
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -72,11 +71,6 @@ fun TextNoteContextMenu(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .let {
-                        if (dimBackground) {
-                            it.background(Color.Black.copy(alpha = 0.3f))
-                        } else it
-                    }
                     .clickable(
                         indication = null,
                         interactionSource = remember { MutableInteractionSource() }
@@ -85,6 +79,7 @@ fun TextNoteContextMenu(
                     }
             )
         }
+
         AnimatedVisibility(
             visible = visible,
             enter = fadeIn(animationSpec = tween(100, easing = LinearOutSlowInEasing)) +
@@ -107,13 +102,17 @@ fun TextNoteContextMenu(
             Surface(
                 shape = RoundedCornerShape(20.dp),
                 color = Color.White,
-                tonalElevation = if (dimBackground) 0.dp else 2.dp,
-                shadowElevation = if (dimBackground) 0.dp else 6.dp,
+                modifier = Modifier.shadow(
+                    elevation = 24.dp,
+                    shape = RoundedCornerShape(20.dp),
+                    ambientColor = Color.Black.copy(alpha = 0.6f),
+                    spotColor = Color.Black.copy(alpha = 0.8f)
+                )
             ) {
                 Column(
                     modifier = Modifier
                         .wrapContentSize()
-                        .padding(vertical = 8.dp),
+                        .padding(vertical = 6.dp),
                     content = content
                 )
             }
@@ -133,7 +132,7 @@ fun ContextMenuItem(
         onClick = onClick,
         shape = RoundedCornerShape(15.dp),
         modifier = Modifier
-            .padding(horizontal = 8.dp)
+            .padding(horizontal = 6.dp)
             .width(width)
             .heightIn(min = 48.dp),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),

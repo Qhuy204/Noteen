@@ -37,6 +37,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.window.Dialog
@@ -48,6 +49,15 @@ import com.example.noteen.data.model.loadCanvasJson
 import androidx.core.graphics.toColorInt
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.example.noteen.R
+import com.example.noteen.data.model.ConfirmAction
+import com.example.noteen.ui.component.bottomsheet.DrawingBackGroundPickerBottomSheet
+import com.example.noteen.ui.component.bottomsheet.NoteBackGroundPickerBottomSheet
+import com.example.noteen.ui.component.contextmenu.AnchoredContextMenu
+import com.example.noteen.ui.component.contextmenu.ContextMenuItem
+import com.example.noteen.ui.component.contextmenu.FloatingContextMenu
+import com.example.noteen.ui.component.dialog.ConfirmDialog
+import com.example.noteen.viewmodel.NoteDetailViewModel
 
 @Composable
 fun DrawingScreen(
@@ -89,6 +99,83 @@ fun DrawingScreen(
         backgroundColor = Color(selectedNote.color.toColorInt())
     }
 
+    var confirmAction by remember { mutableStateOf<ConfirmAction?>(null) }
+
+    ConfirmDialog(
+        action = confirmAction,
+        onDismiss = { confirmAction = null }
+    )
+
+    var showBackgroundBottomSheet by remember { mutableStateOf(false) }
+    var selectedColor by remember { mutableStateOf("#FFFFFF") }
+    var selectedPattern by remember { mutableStateOf("None") }
+
+    DrawingBackGroundPickerBottomSheet(
+        visible = showBackgroundBottomSheet,
+        onDismiss = { showBackgroundBottomSheet = false },
+        selectedColorHex = selectedColor,
+        onColorSelected = { selectedColor = it },
+        selectedPattern = selectedPattern,
+        onPatternSelected = { selectedPattern = it }
+    )
+
+    var stickerDialogOffset by remember { mutableStateOf(DpOffset.Zero) }
+
+    fun addShape() {
+        stickerDialogOffset = DpOffset.Zero
+    }
+    fun addImage() {
+        stickerDialogOffset = DpOffset.Zero
+    }
+
+    FloatingContextMenu(
+        visible = stickerDialogOffset != DpOffset.Zero,
+        offset = DpOffset(stickerDialogOffset.x - 30.dp, stickerDialogOffset.y - 120.dp),
+        onDismiss = { stickerDialogOffset = DpOffset.Zero },
+    ) {
+        ContextMenuItem("Shape", R.drawable.cv_shape, width = 120.dp, onClick = { addShape() })
+        ContextMenuItem("Image", R.drawable.cv_image, width = 120.dp, onClick = { addImage() })
+    }
+
+    var showMenuContext by remember { mutableStateOf(false) }
+
+    fun pinNote() {
+        showMenuContext = false
+    }
+
+    fun setBackground() {
+        showMenuContext = false
+        showBackgroundBottomSheet = true
+    }
+
+    fun lockNote() {
+        showMenuContext = false
+        confirmAction = ConfirmAction(
+            title = "Lock Note",
+            message = "Are you sure you want to lock this note?",
+            action = {  }
+        )
+    }
+
+    fun deleteNote() {
+        showMenuContext = false
+        confirmAction = ConfirmAction(
+            title = "Delete Note",
+            message = "Are you sure you want to delete this note?",
+            action = {  }
+        )
+    }
+
+    AnchoredContextMenu(
+        visible = showMenuContext,
+        onDismiss = { showMenuContext = false }
+    ) {
+        ContextMenuItem("Pin", R.drawable.pin, onClick = { pinNote() })
+        ContextMenuItem("Set background", R.drawable.palette, onClick = { setBackground() })
+        ContextMenuItem("Add to locked folder", R.drawable.lock_keyhole, onClick = { lockNote() })
+        ContextMenuItem("Delete", R.drawable.trash, onClick = { deleteNote() }, contentColor = Color.Red)
+    }
+
     fun saveNote() {
         val bmp = createBitmap(screenWidthPx, screenHeightPx)
         val canvas = android.graphics.Canvas(bmp)
@@ -110,10 +197,6 @@ fun DrawingScreen(
         onGoBack(jsonString, fileName)
     }
 
-    BackHandler {
-        saveNote()
-    }
-
     ToolOverlay(
         selectedButtonIndex = selectedButtonIndex,
         lockState = canZoom,
@@ -125,11 +208,18 @@ fun DrawingScreen(
         onLockClick = { canZoom = !canZoom },
         onUndoClick = {},
         onRedoClick = {},
-        onSettingClick = {},
-        onToolClick = {
-            selectedButtonIndex = it
+        onSettingClick = { showMenuContext = true },
+        onToolClick = { index, offset ->
+            if (index != 5) selectedButtonIndex = index
+            else stickerDialogOffset = offset
         }
     )
+
+    BackHandler {
+        if (!showBackgroundBottomSheet && !showMenuContext) saveNote()
+        if (showBackgroundBottomSheet) showBackgroundBottomSheet = false
+        if (showMenuContext) showMenuContext = false
+    }
 
     BoxWithConstraints(
         modifier = Modifier

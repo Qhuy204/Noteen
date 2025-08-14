@@ -79,7 +79,7 @@ fun FloatingContextMenu(
                         transformOrigin = TransformOrigin(1f, 0f)
                     ),
             modifier = Modifier
-                .offset(x = offset.x - 80.dp, y = offset.y - 40.dp)
+                .offset(x = offset.x, y = offset.y)
         ) {
             Surface(
                 shape = RoundedCornerShape(20.dp),
@@ -89,7 +89,7 @@ fun FloatingContextMenu(
                 Column(
                     modifier = Modifier
                         .wrapContentSize()
-                        .padding(vertical = 8.dp),
+                        .padding(vertical = 6.dp),
                     content = content
                 )
             }

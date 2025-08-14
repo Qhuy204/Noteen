@@ -1,6 +1,10 @@
 package com.example.noteen.ui.component
 
 import android.annotation.SuppressLint
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -35,6 +39,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -59,20 +64,20 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import com.example.noteen.R
 import com.example.noteen.data.model.FolderTag
+import kotlinx.coroutines.delay
 
 @Composable
 fun SortAndLayoutToggle(
     selectedSortType: Int,
     isGridLayout: Boolean,
     onSortTypeClick: () -> Unit,
-    onLayoutToggleClick: () -> Unit,
-    modifier: Modifier = Modifier
+    onLayoutToggleClick: () -> Unit
 ) {
     val sortTypeLabels = listOf("Last Modified", "Last Created", "Note title")
 //    val sortTypeLabels = listOf("Sửa gần đây", "Tạo gần đây", "Tiêu đề")
 
     Box(
-        modifier = modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.CenterEnd
     ) {
         Row(
@@ -255,6 +260,13 @@ fun CategoryBar(
         }
     }
 
+    LaunchedEffect(selectedChip, chipLists) {
+        delay(200)
+        val index = chipLists.indexOfFirst { it.name == selectedChip }
+        if (index >= 0) {
+            listState.animateScrollToItem(index, scrollOffset = -64)
+        }
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -345,7 +357,6 @@ fun CategoryBar(
 
         Spacer(modifier = Modifier.width(8.dp))
 
-        // ✅ Gán callback ở đây
         Surface(
             modifier = Modifier.size(chipHeight),
             shape = RoundedCornerShape(15.dp),

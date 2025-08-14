@@ -1,5 +1,6 @@
 package com.example.noteen.ui.screen
 
+import android.app.Application
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
@@ -40,6 +41,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,6 +57,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.noteen.R
 import com.example.noteen.TextEditorEngine
 import com.example.noteen.data.LocalRepository.entity.NoteEntity
@@ -67,6 +72,7 @@ import com.example.noteen.ui.component.SortAndLayoutToggle
 import com.example.noteen.ui.component.TaskBoard
 import com.example.noteen.ui.component.dialog.CreateFileDialog
 import com.example.noteen.ui.component.dialog.CreateFolderDialog
+import com.example.noteen.viewmodel.NoteDetailViewModel
 import com.example.noteen.viewmodel.NoteListViewModel
 import kotlinx.coroutines.launch
 
@@ -92,22 +98,18 @@ fun NotesScreen(
 //    var selectedFolderName by remember { mutableStateOf("All") }
 
 
-    val isGridLayout by viewModel.isGridLayout.collectAsState()
-    val sortMode by viewModel.sortMode.collectAsState()
+    val isGridLayout = viewModel.isGridLayout
+    val sortMode = viewModel.sortMode
+    val currentFolder = viewModel.currentFolder
+
     val folderTags by viewModel.folderTags.collectAsState()
-    val selectedFolderName by viewModel.selectedFolderName.collectAsState()
     val notes by viewModel.notes.collectAsState()
 
     var showCreateCollectionDialog by remember { mutableStateOf(false) }
     var showCreateFileDialog by remember { mutableStateOf(false) }
 
-    val id by viewModel.id.collectAsState()
     val selectedNote by viewModel.selectedNote.collectAsState()
     val showOverlay by viewModel.showOverlay.collectAsState()
-
-    LaunchedEffect(notes) {
-        Log.i("Noteee", "Notes: ${notes.map { it.id }}")
-    }
 
     /// For Collapsing Header
     val whiteBox1Dp = 55.dp
@@ -176,7 +178,8 @@ fun NotesScreen(
             .fillMaxSize()
             .background(Color(0xFFf2f2f2))
             .padding(WindowInsets.statusBars.asPaddingValues())
-    ) {
+    )
+    {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -223,8 +226,8 @@ fun NotesScreen(
 
             CategoryBar(
                 chipLists = folderTags,
-                selectedChip = selectedFolderName,
-                onChipClick = { viewModel.selectFolder(it) },
+                selectedChip = currentFolder,
+                onChipClick = { viewModel.updateCurrentFolder(it) },
                 onAddButtonClick = { showCreateCollectionDialog = true },
                 onFolderClick = onNavigateToFolders
             )
@@ -238,12 +241,11 @@ fun NotesScreen(
                     selectedSortType = sortMode,
                     isGridLayout = isGridLayout,
                     onSortTypeClick = {
-                        viewModel.setSortMode((sortMode + 1) % 3)
+                        viewModel.updateSortMode((sortMode + 1) % 3)
                     },
                     onLayoutToggleClick = {
-                        viewModel.toggleLayout()
-                    },
-                    modifier = Modifier.fillMaxSize()
+                        viewModel.updateGridLayout(!isGridLayout)
+                    }
                 )
             }
 
@@ -267,13 +269,12 @@ fun NotesScreen(
                             TaskBoard()
                         }
                         items(notes, key = { it.id }) { note ->
+                            val currentNoteState by rememberUpdatedState(newValue = note)
                             NoteCard(
                                 modifier = Modifier.animateItem(),
                                 note = note,
-                                onClick = { noteId ->
-                                    Log.i("Noteee", "ID: $noteId")
-//                                    onNavigateToNote(noteId)
-                                    viewModel.setId(noteId)
+                                onClick = { currentNote ->
+                                    viewModel.selectNote(currentNoteState)
                                 }
                             )
                         }
@@ -289,12 +290,12 @@ fun NotesScreen(
                             TaskBoard()
                         }
                         items(notes, key = { it.id }) { note ->
+                            val currentNoteState by rememberUpdatedState(newValue = note)
                             NoteCard2(
                                 modifier = Modifier.animateItem(),
                                 note = note,
-                                onClick = { noteId ->
-//                                    onNavigateToNote(noteId)
-                                    viewModel.setId(noteId)
+                                onClick = { currentNote ->
+                                    viewModel.selectNote(currentNoteState)
                                 }
                             )
                         }
@@ -310,8 +311,8 @@ fun NotesScreen(
             onSecondClick = {
                 coroutineScope.launch {
                     val noteId = viewModel.insertNote(NoteEntity(type = "text"))
-//                    onNavigateToNote(noteId.toInt())
-                    viewModel.setId(noteId.toInt())
+                    val newNote = viewModel.getSelectedNote(noteId.toInt())
+                    viewModel.selectNote(newNote)
                 }
             }
         )
@@ -341,7 +342,7 @@ fun NotesScreen(
             )
         }
     }
-    if (id != 0) {
+    if (selectedNote != null) {
         AnimatedVisibility(
             visible = showOverlay,
             enter = slideInHorizontally(
@@ -354,13 +355,11 @@ fun NotesScreen(
             )
         ) {
             selectedNote?.let {
+                val noteViewModel: NoteDetailViewModel = viewModel(factory = ViewModelProvider.AndroidViewModelFactory(LocalContext.current.applicationContext as Application))
+
                 if (it.type == "text") {
-                    OverlyTextEditor(id) {
-                        coroutineScope.launch {
-                            val (title, json, plain) = TextEditorEngine.waitForContentUpdate()
-                            viewModel.saveEditorData(title, json, plain)
-                            viewModel.hideOverlay()
-                        }
+                    OverlayTextEditor(noteViewModel, it) {
+                        viewModel.hideOverlay()
                     }
                 }
                 else {

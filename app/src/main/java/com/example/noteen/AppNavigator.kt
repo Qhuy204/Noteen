@@ -26,9 +26,7 @@ import androidx.navigation.navArgument
 import com.example.noteen.ui.screen.FoldersScreen
 import com.example.noteen.ui.screen.NoteEditorScreen
 import com.example.noteen.ui.screen.NotesScreen
-import com.example.noteen.viewmodel.FolderViewModel
 import com.example.noteen.viewmodel.NoteDetailViewModel
-import com.example.noteen.viewmodel.NoteDetailViewModelFactory
 import com.example.noteen.viewmodel.NoteListViewModel
 
 @Composable
@@ -66,12 +64,12 @@ fun AppNavigator() {
     NavHost(navController = navController, startDestination = "notes") {
         composable("notes") {
             val viewModel: NoteListViewModel = viewModel(factory = ViewModelProvider.AndroidViewModelFactory(context.applicationContext as Application))
-//            LaunchedEffect(currentRoute) {
-//                if (currentRoute == "notes") {
-//                    viewModel.loadFolderTags()
-//                    viewModel.loadNotes()
-//                }
-//            }
+            LaunchedEffect(currentRoute) {
+                if (currentRoute == "notes") {
+                    viewModel.loadFolderTags()
+                    viewModel.loadNotes()
+                }
+            }
             NotesScreen(
                 onNavigateToNote = { noteId ->
                     navigateSafe("editor/$noteId")
@@ -98,17 +96,13 @@ fun AppNavigator() {
                 )
             }
         ) { backStackEntry ->
-            val noteId = backStackEntry.arguments?.getInt("noteId") ?: 0
-
-            val viewModel: NoteDetailViewModel = viewModel(
-                factory = NoteDetailViewModelFactory(context.applicationContext as Application, noteId)
-            )
-
-            NoteEditorScreen(
-                noteId = noteId,
-                onGoBack = { navController.popBackStack() },
-                viewModel = viewModel
-            )
+//            val noteId = backStackEntry.arguments?.getInt("noteId") ?: 0
+//
+//            NoteEditorScreen(
+//                noteId = noteId,
+//                onGoBack = { navController.popBackStack() },
+//                viewModel = viewModel
+//            )
         }
         composable(
             route = "folders",
