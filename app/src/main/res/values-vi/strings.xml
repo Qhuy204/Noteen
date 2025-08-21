@@ -1,0 +1,57 @@
+<resources>
+    <string name="app_name">Noteen</string>
+
+    <string name="search">Tìm kiếm</string>
+    <string name="add_tag">Thêm</string>
+
+    <string name="note_sort1">Sửa gần đây</string>
+    <string name="note_sort2">Tạo gần đây</string>
+    <string name="note_sort3">Tên ghi chú</string>
+
+    <string name="folder_sort1">Sửa gần đây</string>
+    <string name="folder_sort2">Tạo gần đây</string>
+    <string name="folder_sort3">Tên thư mục</string>
+
+    <string name="to_do_list">Danh sách nhiệm vụ</string>
+    <string name="add_new_task">Thêm nhiệm vụ</string>
+    <string name="see_more">Xem thêm</string>
+
+    <string name="folders">Thư mục</string>
+    <string name="tasks">Nhiệm vụ</string>
+    <string name="recently_deleted">Xóa gần đây</string>
+
+    <string name="create_new_folder">Thêm một thư mục</string>
+    <string name="edit_folder">Sửa thư mục</string>
+    <string name="folder_name">Tên thư mục</string>
+    <string name="choose_folder_icon">Chọn biểu tượng</string>
+
+    <string name="create_new_drawing_board">Thêm một bảng vẽ</string>
+    <string name="file_name">Tiêu đề</string>
+    <string name="choose_background_color">Chọn màu nền</string>
+    <string name="choose_pattern">Chọn kiểu nền</string>
+
+    <string name="edit">Sửa</string>
+    <string name="delete">Xóa</string>
+    <string name="pin">Ghim</string>
+    <string name="unpin">Bỏ ghim</string>
+    <string name="set_background">Chỉnh nền</string>
+    <string name="uncategorize">Bỏ phân loại</string>
+    <string name="move_to_new_folder">Chuyển tới mục mới</string>
+    <string name="lock_note">Thêm vào mục khóa</string>
+    <string name="unlock_note">Bỏ khóa ghi chú</string>
+
+    <string name="today">Hôm nay</string>
+    <string name="tomorrow">Ngày mai</string>
+    <string name="yesterday">Hôm qua</string>
+    <string name="just_now">vừa xong</string>
+    <string name="minutes_ago">phút trước</string>
+    <string name="hours_ago">giờ trước</string>
+    <string name="days_ago">ngày trước</string>
+
+    <string name="locked_folder">Thư mục khóa</string>
+    <string name="all">Tất cả</string>
+    <string name="uncategorized">Chưa phân loại</string>
+
+    <string name="auth_title">Xác thực</string>
+    <string name="auth_subtitle">Xác thực để mở thư mục khóa</string>
+</resources>

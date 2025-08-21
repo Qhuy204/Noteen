@@ -71,7 +71,33 @@ interface NoteDao {
         return getLastInsertedNoteId()
     }
 
-    @Update suspend fun update(note: NoteEntity)
+    @Query("""
+        UPDATE notes
+        SET name = :name,
+            content = :content,
+            plaintext = :plaintext,
+            thumbnail = :thumbnail,
+            updated_at = :updatedAt
+        WHERE id = :id
+    """)
+    suspend fun updateNoteFields(
+        id: Int,
+        name: String,
+        content: String,
+        plaintext: String,
+        thumbnail: String,
+        updatedAt: Long = System.currentTimeMillis()
+    )
+
+    suspend fun update(note: NoteEntity) {
+        updateNoteFields(
+            id = note.id,
+            name = note.name,
+            content = note.content,
+            plaintext = note.plaintext,
+            thumbnail = note.thumbnail
+        )
+    }
 
     @Query("DELETE FROM notes WHERE id = :id")
     suspend fun deleteById(id: Int)
@@ -85,21 +111,19 @@ interface NoteDao {
     @Query("SELECT * FROM notes WHERE is_deleted = 1 ORDER BY updated_at DESC")
     suspend fun getAllDeletedNotes(): List<NoteEntity>
 
-    @Query("SELECT * FROM notes WHERE id = :id AND is_deleted = 0 LIMIT 1")
+    @Query("SELECT * FROM notes WHERE id = :id")
     suspend fun getNoteById(id: Int): NoteEntity?
 
     @Query("""
     UPDATE notes
     SET folder_id = (
         SELECT id FROM folders WHERE name = :newFolderName LIMIT 1
-    ),
-    updated_at = :updatedAt
+    )
     WHERE id = :noteId
 """)
     suspend fun updateFolderByName(
         noteId: Int,
-        newFolderName: String?,
-        updatedAt: Long = System.currentTimeMillis()
+        newFolderName: String?
     )
 
     @Query("""
@@ -113,13 +137,11 @@ interface NoteDao {
     // Pin / Unpin note
     @Query("""
     UPDATE notes
-    SET pinned_at = CASE 
-                        WHEN :pinned THEN strftime('%s','now') 
-                        ELSE NULL 
-                    END
+    SET pinned_at = :pinnedAt
     WHERE id = :noteId
 """)
-    suspend fun setPinned(noteId: Int, pinned: Boolean)
+    suspend fun setPinned(noteId: Int, pinnedAt: Long?)
+
 
     // Lock / Unlock note
     @Query("""
@@ -129,25 +151,38 @@ interface NoteDao {
 """)
     suspend fun setLocked(noteId: Int, locked: Boolean)
 
+    @Query("""
+        UPDATE notes
+        SET color = :color
+        WHERE id = :noteId
+    """)
+    suspend fun setColor(noteId: Int, color: String)
+
+    @Query("""
+        UPDATE notes
+        SET background = :background
+        WHERE id = :noteId
+    """)
+    suspend fun setBackground(noteId: Int, background: String)
 
 
     @Query("""
     SELECT * FROM notes
-    WHERE is_deleted = 0
+    WHERE is_deleted = 0 AND notes.is_locked = 0
     ORDER BY pinned_at DESC, updated_at DESC
 """)
     suspend fun getAllNotesSortedByUpdated(): List<NoteEntity>
 
     @Query("""
     SELECT * FROM notes
-    WHERE is_deleted = 0
+    WHERE is_deleted = 0 AND notes.is_locked = 0
     ORDER BY pinned_at DESC, created_at DESC
 """)
     suspend fun getAllNotesSortedByCreated(): List<NoteEntity>
 
     @Query("""
     SELECT * FROM notes
-    WHERE is_deleted = 0
+    WHERE is_deleted = 0 AND notes.is_locked = 0
     ORDER BY pinned_at DESC, name COLLATE NOCASE ASC
 """)
     suspend fun getAllNotesSortedByName(): List<NoteEntity>
@@ -155,21 +190,21 @@ interface NoteDao {
 
     @Query("""
     SELECT * FROM notes
-    WHERE folder_id IS NULL AND is_deleted = 0
+    WHERE folder_id IS NULL AND is_deleted = 0 AND notes.is_locked = 0
     ORDER BY pinned_at DESC, updated_at DESC
 """)
     suspend fun getUncategorizedNotesSortedByUpdated(): List<NoteEntity>
 
     @Query("""
     SELECT * FROM notes
-    WHERE folder_id IS NULL AND is_deleted = 0
+    WHERE folder_id IS NULL AND is_deleted = 0 AND notes.is_locked = 0
     ORDER BY pinned_at DESC, created_at DESC
 """)
     suspend fun getUncategorizedNotesSortedByCreated(): List<NoteEntity>
 
     @Query("""
     SELECT * FROM notes
-    WHERE folder_id IS NULL AND is_deleted = 0
+    WHERE folder_id IS NULL AND is_deleted = 0 AND notes.is_locked = 0
     ORDER BY pinned_at DESC, name COLLATE NOCASE ASC
 """)
     suspend fun getUncategorizedNotesSortedByName(): List<NoteEntity>
@@ -178,7 +213,7 @@ interface NoteDao {
     @Query("""
     SELECT notes.* FROM notes
     INNER JOIN folders ON notes.folder_id = folders.id
-    WHERE folders.name = :folderName AND notes.is_deleted = 0
+    WHERE folders.name = :folderName AND notes.is_deleted = 0 AND notes.is_locked = 0
     ORDER BY notes.pinned_at DESC, notes.updated_at DESC
 """)
     suspend fun getNotesByFolderNameSortedByUpdated(folderName: String): List<NoteEntity>
@@ -186,7 +221,7 @@ interface NoteDao {
     @Query("""
     SELECT notes.* FROM notes
     INNER JOIN folders ON notes.folder_id = folders.id
-    WHERE folders.name = :folderName AND notes.is_deleted = 0
+    WHERE folders.name = :folderName AND notes.is_deleted = 0 AND notes.is_locked = 0
     ORDER BY notes.pinned_at DESC, notes.created_at DESC
 """)
     suspend fun getNotesByFolderNameSortedByCreated(folderName: String): List<NoteEntity>
@@ -194,8 +229,29 @@ interface NoteDao {
     @Query("""
     SELECT notes.* FROM notes
     INNER JOIN folders ON notes.folder_id = folders.id
-    WHERE folders.name = :folderName AND notes.is_deleted = 0
+    WHERE folders.name = :folderName AND notes.is_deleted = 0 AND notes.is_locked = 0
     ORDER BY notes.pinned_at DESC, notes.name COLLATE NOCASE ASC
 """)
     suspend fun getNotesByFolderNameSortedByName(folderName: String): List<NoteEntity>
+
+    @Query("""
+        SELECT * FROM notes
+        WHERE is_deleted = 0 AND is_locked = 1
+        ORDER BY pinned_at DESC, updated_at DESC
+    """)
+    suspend fun getLockedNotesSortedByUpdated(): List<NoteEntity>
+
+    @Query("""
+        SELECT * FROM notes
+        WHERE is_deleted = 0 AND is_locked = 1
+        ORDER BY pinned_at DESC, created_at DESC
+    """)
+    suspend fun getLockedNotesSortedByCreated(): List<NoteEntity>
+
+    @Query("""
+        SELECT * FROM notes
+        WHERE is_deleted = 0 AND is_locked = 1
+        ORDER BY pinned_at DESC, name COLLATE NOCASE ASC
+    """)
+    suspend fun getLockedNotesSortedByName(): List<NoteEntity>
 }

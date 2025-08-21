@@ -10,6 +10,8 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
@@ -57,11 +59,14 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.noteen.MainActivity
 import com.example.noteen.R
 import com.example.noteen.SettingLoader
 import com.example.noteen.data.LocalRepository.entity.FolderEntity
@@ -73,6 +78,7 @@ import com.example.noteen.ui.component.contextmenu.ContextMenuItem
 import com.example.noteen.ui.component.contextmenu.FloatingContextMenu
 import com.example.noteen.ui.component.dialog.ConfirmDialog
 import com.example.noteen.ui.component.dialog.CreateFolderDialog
+import com.example.noteen.utils.authenticateAndOpenLockedFolder
 import com.example.noteen.utils.formatNoteDate
 import com.example.noteen.utils.formatTimestamp
 import com.example.noteen.viewmodel.FolderListViewModel
@@ -86,21 +92,52 @@ data class MenuState(
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun FoldersScreen(onGoBack: () -> Unit = {}) {
+fun FoldersScreen(
+    onGoBack: () -> Unit = {},
+    onNavigateToBin: (Boolean) -> Unit = {},
+    viewModel: FolderListViewModel
+) {
     val context = LocalContext.current
-    val viewModel: FolderListViewModel = viewModel(factory = ViewModelProvider.AndroidViewModelFactory(context.applicationContext as Application))
+    val activity = context as FragmentActivity
+
+    val title = stringResource(R.string.auth_title)
+    val subtitle = stringResource(R.string.auth_subtitle)
+
+    val onCardClick = {
+        if (SettingLoader.currentFolder == "Locked") {
+            onGoBack()
+        } else {
+            activity.authenticateAndOpenLockedFolder(
+                title = title,
+                subTitle = subtitle,
+                onSuccess = {
+                    SettingLoader.updateCurrentFolder("Locked")
+                    onGoBack()
+                },
+                onFail = { }
+            )
+        }
+    }
+
     val folders by viewModel.folders.collectAsState()
     val selectedFolder by viewModel.selectedFolder.collectAsState()
 
     val isGridLayout = viewModel.isGridLayout
     val sortMode = viewModel.sortMode
 
+    LaunchedEffect(Unit) {
+        viewModel.loadFolders()
+    }
+
     var menuState by remember { mutableStateOf(MenuState()) }
 
-    var showCreateCollectionDialog by remember { mutableStateOf(false) }
+    var showCreateFolderDialog by remember { mutableStateOf(false) }
 
     var showOverlay by remember { mutableStateOf(false) }
 
+    LaunchedEffect(showOverlay, showCreateFolderDialog) {
+        onNavigateToBin(showOverlay || showCreateFolderDialog)
+    }
 
     BackHandler {
         if (!showOverlay) onGoBack()
@@ -181,13 +218,13 @@ fun FoldersScreen(onGoBack: () -> Unit = {}) {
         menuState = menuState.copy(isVisible = false)
         menuState.itemId?.let {
             viewModel.selectFolder(it)
-            showCreateCollectionDialog = true
+            showCreateFolderDialog = true
         }
     }
 
     fun addFolder() {
         viewModel.clearSelectedFolder()
-        showCreateCollectionDialog = true
+        showCreateFolderDialog = true
     }
 
     fun deleteFolder() {
@@ -243,7 +280,7 @@ fun FoldersScreen(onGoBack: () -> Unit = {}) {
                 }
                 Box(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Folders",
+                        text = stringResource(id = R.string.folders),
                         modifier = Modifier,
                         style = MaterialTheme.typography.headlineSmall,
                     )
@@ -278,7 +315,8 @@ fun FoldersScreen(onGoBack: () -> Unit = {}) {
                     },
                     onLayoutToggleClick = {
                         viewModel.updateGridLayout(!isGridLayout)
-                    }
+                    },
+                    false
                 )
             }
             Crossfade(
@@ -287,7 +325,6 @@ fun FoldersScreen(onGoBack: () -> Unit = {}) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .padding(vertical = 8.dp)
             ) { isGrid ->
                 if (isGrid) {
                     LazyVerticalGrid(
@@ -304,7 +341,7 @@ fun FoldersScreen(onGoBack: () -> Unit = {}) {
                                 modifier = Modifier.animateItem(),
                                 id = folder.id,
                                 name = folder.name,
-                                createdDate = formatNoteDate(formatTimestamp(folder.createdAt)),
+                                createdDate = formatNoteDate(context, formatTimestamp(folder.createdAt)),
                                 iconName = folder.description,
                                 onMenuButtonClick = { id, offset ->
                                     menuState = MenuState(true, offset, id)
@@ -313,6 +350,18 @@ fun FoldersScreen(onGoBack: () -> Unit = {}) {
                                     SettingLoader.updateCurrentFolder(folder.name)
                                     onGoBack()
                                 }
+                            )
+                        }
+                        item {
+                            FolderCard(
+                                modifier = Modifier.animateItem(),
+                                id = 0,
+                                name = stringResource(R.string.locked_folder),
+                                createdDate = "",
+                                iconName = "folder_locked",
+                                onMenuButtonClick = { id, offset ->
+                                },
+                                onCardClick = onCardClick
                             )
                         }
                         item {
@@ -332,7 +381,7 @@ fun FoldersScreen(onGoBack: () -> Unit = {}) {
                                 modifier = Modifier.animateItem(),
                                 id = folder.id,
                                 name = folder.name,
-                                createdDate = formatNoteDate(formatTimestamp(folder.createdAt)),
+                                createdDate = formatNoteDate(context, formatTimestamp(folder.createdAt)),
                                 iconName = folder.description,
                                 isGridLayout = false,
                                 onMenuButtonClick = { id, offset ->
@@ -342,6 +391,19 @@ fun FoldersScreen(onGoBack: () -> Unit = {}) {
                                     SettingLoader.updateCurrentFolder(folder.name)
                                     onGoBack()
                                 }
+                            )
+                        }
+                        item {
+                            FolderCard(
+                                modifier = Modifier.animateItem(),
+                                id = 0,
+                                name = stringResource(R.string.locked_folder),
+                                createdDate = "",
+                                iconName = "folder_locked",
+                                isGridLayout = false,
+                                onMenuButtonClick = { id, offset ->
+                                },
+                                onCardClick = onCardClick
                             )
                         }
                         item {
@@ -367,15 +429,15 @@ fun FoldersScreen(onGoBack: () -> Unit = {}) {
                 modifier = Modifier.size(20.dp)
             )
         }
-        if (showCreateCollectionDialog) {
+        if (showCreateFolderDialog) {
             CreateFolderDialog(
                 selectedFolder = selectedFolder,
                 onConfirm = { folder ->
                     addOrUpdateFolder(folder)
-                    showCreateCollectionDialog = false
+                    showCreateFolderDialog = false
                 },
                 onDismiss = {
-                    showCreateCollectionDialog = false
+                    showCreateFolderDialog = false
                 }
             )
         }
@@ -384,23 +446,22 @@ fun FoldersScreen(onGoBack: () -> Unit = {}) {
             offset = DpOffset(menuState.offset.x - 80.dp, menuState.offset.y - 40.dp),
             onDismiss = { menuState = menuState.copy(isVisible = false) },
         ) {
-            ContextMenuItem("Edit", R.drawable.pencil, width = 120.dp, onClick = { editFolder() }, contentColor = Color(0xFF1966FF))
-            ContextMenuItem("Delete", R.drawable.trash, width = 120.dp, onClick = { deleteFolder() }, contentColor = Color.Red)
+            ContextMenuItem(stringResource(id = R.string.edit), R.drawable.pencil, width = 120.dp, onClick = { editFolder() }, contentColor = Color(0xFF1966FF))
+            ContextMenuItem(stringResource(id = R.string.delete), R.drawable.trash, width = 120.dp, onClick = { deleteFolder() }, contentColor = Color.Red)
         }
     }
     AnimatedVisibility(
         visible = showOverlay,
-        enter = slideInHorizontally(
-            initialOffsetX = { fullWidth -> fullWidth },
-            animationSpec = tween(durationMillis = 300)
+        enter = fadeIn(
+            animationSpec = tween(durationMillis = 150)
         ),
-        exit = slideOutHorizontally(
-            targetOffsetX = { fullWidth -> fullWidth },
-            animationSpec = tween(durationMillis = 400)
+        exit = fadeOut(
+            animationSpec = tween(durationMillis = 150)
         )
     ) {
         RecycleBinScreen(
-            onGoBack =  { showOverlay = false }
+            onGoBack = { showOverlay = false }
         )
     }
+
 }

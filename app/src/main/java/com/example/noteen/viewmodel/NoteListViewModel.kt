@@ -6,7 +6,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.noteen.SettingLoader
 import com.example.noteen.TextEditorEngine
@@ -15,10 +14,7 @@ import com.example.noteen.data.LocalRepository.entity.FolderEntity
 import com.example.noteen.data.LocalRepository.entity.NoteEntity
 import com.example.noteen.data.LocalRepository.reposity.FolderRepository
 import com.example.noteen.data.LocalRepository.reposity.NoteRepository
-import com.example.noteen.data.model.FolderTag
-import com.example.noteen.utils.json
-import com.example.noteen.utils.json1
-import com.example.noteen.utils.json2
+import com.example.noteen.data.LocalRepository.model.FolderTag
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -72,38 +68,10 @@ class NoteListViewModel(application: Application) : AndroidViewModel(application
     private val _showOverlay = MutableStateFlow(false)
     val showOverlay: StateFlow<Boolean> = _showOverlay.asStateFlow()
 
-    fun setId(newId: Int) {
-        viewModelScope.launch {
-            if (newId != 0) {
-                TextEditorEngine.reset()
-                _selectedNote.value?.let {
-                    TextEditorEngine.setContent(it.name, it.content)
-                    Log.d("TextEditor", "Selected note: ${it.id}")
-                }
-//                TextEditorEngine.setContent("Hello", listOf(json1, json2, json).random())
-                delay(300)
-                _showOverlay.value = true
-            } else {
-                _showOverlay.value = false
-            }
-        }
-    }
-
-    fun saveDrawingNote(content: String, thumbnail: String) {
-        if (content == "{\"strokes\":[]}") {
-            deleteNote()
-        }
-        _selectedNote.value?.let {
-            if (content != it.content) {
-                updateNote(it.copy(content = content, thumbnail = thumbnail, updatedAt = System.currentTimeMillis()))
-                Log.d("TextEditor", "Updated id ${it.id}")
-            }
-        }
-    }
-
     fun hideOverlay() {
         _showOverlay.value = false
         loadNotes()
+        loadFolderTags()
     }
 
 
@@ -136,6 +104,7 @@ class NoteListViewModel(application: Application) : AndroidViewModel(application
 
     fun updateCurrentFolder(folderName: String) {
         SettingLoader.updateCurrentFolder(folderName)
+        Log.i("testtt", "Folder current: $folderName")
         currentFolder = folderName
         loadNotes()
     }

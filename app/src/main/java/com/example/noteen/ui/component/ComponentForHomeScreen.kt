@@ -1,16 +1,11 @@
 package com.example.noteen.ui.component
 
-import android.annotation.SuppressLint
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +16,8 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -31,8 +28,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -46,55 +41,83 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import com.example.noteen.R
-import com.example.noteen.data.model.FolderTag
+import com.example.noteen.SettingLoader
+import com.example.noteen.data.LocalRepository.model.FolderTag
+import com.example.noteen.data.model.MainTask
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun SortAndLayoutToggle(
     selectedSortType: Int,
     isGridLayout: Boolean,
     onSortTypeClick: () -> Unit,
-    onLayoutToggleClick: () -> Unit
+    onLayoutToggleClick: () -> Unit,
+    noteSort: Boolean = true
 ) {
-    val sortTypeLabels = listOf("Last Modified", "Last Created", "Note title")
-//    val sortTypeLabels = listOf("Sửa gần đây", "Tạo gần đây", "Tiêu đề")
+    val sortForNote = listOf(stringResource(R.string.note_sort1), stringResource(R.string.note_sort2), stringResource(R.string.note_sort3))
+    val sortForFolder = listOf(stringResource(R.string.folder_sort1), stringResource(R.string.folder_sort2), stringResource(R.string.folder_sort3))
+
+    val sortTypeLabels = if (noteSort) sortForNote else sortForFolder
+
+    var heightPx by remember { mutableStateOf(0) }
+    val density = LocalDensity.current
+
+    val heightDp = with(density) { heightPx.toDp() }
+
+    val alpha = when {
+        heightDp >= 50.dp -> 1f
+        heightDp <= 36.dp -> 0f
+        else -> ((heightDp - 36.dp) / (50.dp - 36.dp)).coerceIn(0f, 1f)
+    }
 
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .onSizeChanged { size -> heightPx = size.height }
+            .graphicsLayer { this.alpha = alpha },
         contentAlignment = Alignment.CenterEnd
     ) {
         Row(
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 6.dp, vertical = 6.dp)
+            modifier = Modifier.fillMaxSize()
         ) {
             Box(
                 modifier = Modifier
-                    .width(135.dp)
+                    .width(140.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .clickable { onSortTypeClick() }
                     .padding(horizontal = 8.dp, vertical = 6.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Icon(
                         painter = painterResource(id = R.drawable.list_filter),
                         contentDescription = "Sort Icon",
@@ -106,17 +129,18 @@ fun SortAndLayoutToggle(
                         text = sortTypeLabels.getOrNull(selectedSortType) ?: "Sort",
                         color = Color.Black,
                         fontSize = 14.sp,
+                        lineHeight = 14.sp,
                         textAlign = TextAlign.Center
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.width(3.dp))
+            Spacer(modifier = Modifier.width(2.dp))
 
             IconButton(
                 onClick = onLayoutToggleClick,
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(32.dp)
                     .clip(CircleShape)
                     .background(Color.Transparent)
             ) {
@@ -162,7 +186,7 @@ fun SearchBar() {
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = "Search",
+                    text = stringResource(R.string.search),
                     color = Color.Gray,
                     fontSize = 18.sp,
                     lineHeight = 18.sp
@@ -234,6 +258,32 @@ fun TagChip(
 }
 
 @Composable
+fun LockedTagChip(label: String, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(15.dp),
+        color = Color.Black,
+        modifier = Modifier.height(40.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .fillMaxHeight(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.lock_keyhole),
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(label, color = Color.White, fontSize = 14.sp)
+        }
+    }
+}
+
+@Composable
 fun CategoryBar(
     chipLists: List<FolderTag>,
     selectedChip: String,
@@ -245,6 +295,23 @@ fun CategoryBar(
     val blueColor = Color(0xFF1966FF)
     val fadeColor = Color(0xFFF2F2F2)
     val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+
+    val allText = stringResource(R.string.all)
+    val uncategorizedText = stringResource(R.string.uncategorized)
+    val mappedChipLists = chipLists.map { folder ->
+        val displayName = when (folder.name) {
+            "All" -> allText
+            "Uncategorized" -> uncategorizedText
+            else -> folder.name
+        }
+        folder.copy(name = displayName)
+    }
+    val mappedSelectedChip = when (selectedChip) {
+        "All" -> allText
+        "Uncategorized" -> uncategorizedText
+        else -> selectedChip
+    }
 
     val canScrollBackward by remember {
         derivedStateOf {
@@ -260,13 +327,15 @@ fun CategoryBar(
         }
     }
 
-    LaunchedEffect(selectedChip, chipLists) {
-        delay(200)
-        val index = chipLists.indexOfFirst { it.name == selectedChip }
+    LaunchedEffect(mappedSelectedChip, mappedChipLists) {
+        delay(100)
+        val index = mappedChipLists.indexOfFirst { it.name == mappedSelectedChip }
         if (index >= 0) {
             listState.animateScrollToItem(index, scrollOffset = -64)
         }
+        else listState.animateScrollToItem(0)
     }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -284,12 +353,25 @@ fun CategoryBar(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                items(chipLists) { (label, count) ->
+                if (selectedChip == "Locked") {
+                    item {
+                        LockedTagChip(stringResource(R.string.locked_folder)) { }
+                    }
+                }
+
+                items(mappedChipLists) { (_, label, count) ->
                     TagChip(
                         text = label,
                         count = count,
-                        isSelected = label == selectedChip,
-                        onClick = { onChipClick(label) }
+                        isSelected = label == mappedSelectedChip,
+                        onClick = {
+                            scope.launch {
+                                if (SettingLoader.currentFolder == "Locked") delay(600)
+                                if (label == allText) onChipClick("All")
+                                else if (label == uncategorizedText) onChipClick("Uncategorized")
+                                else onChipClick(label)
+                            }
+                        }
                     )
                 }
 
@@ -312,11 +394,11 @@ fun CategoryBar(
                                 imageVector = Icons.Default.Add,
                                 contentDescription = "Add",
                                 tint = blueColor,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "New",
+                                text = stringResource(R.string.add_tag),
                                 color = blueColor,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold
@@ -373,164 +455,6 @@ fun CategoryBar(
                     tint = blueColor,
                     modifier = Modifier.size(20.dp)
                 )
-            }
-        }
-    }
-}
-
-@Composable
-fun CustomCheckbox(
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    size: Dp = 20.dp
-) {
-    Box(
-        modifier = Modifier
-            .size(size)
-            .clip(RoundedCornerShape(5.dp))
-            .background(if (checked) Color(0xFF1966FF) else Color.Transparent)
-            .border(1.5.dp, if (checked) Color(0xFF1966FF) else Color.Gray, RoundedCornerShape(5.dp))
-            .clickable { onCheckedChange(!checked) },
-        contentAlignment = Alignment.Center
-    ) {
-        if (checked) {
-            Icon(
-                imageVector = Icons.Default.Check,
-                contentDescription = "Checked",
-                tint = Color.White,
-                modifier = Modifier.size(size * 0.7f)
-            )
-        }
-    }
-}
-
-@SuppressLint("RememberReturnType")
-@Composable
-fun TaskBoard() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(Color.White)
-            .padding(28.dp)
-    ) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            val headerChecked = remember { mutableStateOf(false) }
-
-            val items = listOf(
-                "Buy groceries and cook dinner",
-                "Finish the Compose layout",
-                "Review PRs from the team",
-                "Prepare slides for the meeting",
-                "Respond to emails from clients"
-            )
-
-            val checkedStates = remember { mutableStateListOf(*Array(items.size) { false }) }
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 3.dp)
-            ) {
-                Text(
-                    text = "Today's Tasks",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = Color.Black,
-                    modifier = Modifier.weight(1f)
-                )
-
-                CustomCheckbox(
-                    checked = headerChecked.value,
-                    onCheckedChange = {
-                        headerChecked.value = it
-                        // Cập nhật tất cả các checkbox con theo trạng thái của checkbox header
-                        for (i in checkedStates.indices) {
-                            checkedStates[i] = it
-                        }
-                    },
-                    size = 24.dp // checkbox lớn hơn
-                )
-            }
-
-            items.forEachIndexed { index, item ->
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(end = 2.dp)
-                ) {
-                    Text(
-                        text = item,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Black,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(end = 8.dp)
-                    )
-
-                    CustomCheckbox(
-                        checked = checkedStates[index],
-                        onCheckedChange = { checkedStates[index] = it }
-                    )
-                }
-            }
-
-            val progress = checkedStates.count { it } / items.size.toFloat()
-            val percentage = (progress * 100).toInt()
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(32.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.align(Alignment.TopStart)
-                ) {
-                    Icon(
-                        modifier = Modifier.size(16.dp),
-                        painter = painterResource(id = R.drawable.alarm_clock),
-                        contentDescription = "Alarm Icon",
-//                        tint = Color.Gray
-                        tint = Color(0xFFF57C00)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "Not set yet",
-                        style = MaterialTheme.typography.bodySmall,
-//                        color = Color.Gray
-                        color = Color(0xFFF57C00)
-                    )
-                }
-
-                Text(
-                    text = "$percentage%",
-                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                    color = Color(0xFF1966FF),
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(bottom = 4.dp)
-                )
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .align(Alignment.BottomStart)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Color(0xFFE0E0E0))
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(progress)
-                            .height(8.dp)
-                            .background(Color(0xFF1966FF), RoundedCornerShape(4.dp))
-                    )
-                }
             }
         }
     }

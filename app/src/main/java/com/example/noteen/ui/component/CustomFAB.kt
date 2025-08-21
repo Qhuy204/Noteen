@@ -34,6 +34,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.input.pointer.changedToUp
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import com.example.noteen.R
 import kotlinx.coroutines.delay
@@ -73,12 +75,18 @@ fun CustomFAB(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .clickable(
-                        indication = null, // No ripple effect
-                        interactionSource = remember { MutableInteractionSource() }
-                    ) {
-                        // Collapse FABs
-                        expanded = false
+                    .pointerInput(Unit) {
+                        if (!expanded) return@pointerInput
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val up = event.changes.any { it.changedToUp() }
+                                if (up) {
+                                    expanded = false
+                                }
+                                event.changes.forEach { it.consume() }
+                            }
+                        }
                     }
             )
         }
@@ -91,7 +99,10 @@ fun CustomFAB(
                 .padding(bottom = 200.dp, end = 36.dp)
         ) {
             FloatingActionButton(
-                onClick = { onFirstClick() },
+                onClick = {
+                    expanded = false
+                    onFirstClick()
+                },
                 modifier = Modifier.size(48.dp),
                 containerColor = Color(0xFF1966FF),
                 shape = CircleShape,

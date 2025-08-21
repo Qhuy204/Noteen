@@ -56,12 +56,21 @@ object SettingLoader {
 
     private suspend fun loadInitialValues() {
         val prefs = dataStore.data.first()
+
         notesIsGridLayout = prefs[NOTES_GRID_KEY] ?: true
         notesSortMode = prefs[NOTES_SORT_KEY] ?: 0
         foldersIsGridLayout = prefs[FOLDERS_GRID_KEY] ?: true
         foldersSortMode = prefs[FOLDERS_SORT_KEY] ?: 0
-        currentFolder = prefs[CURRENT_FOLDER_KEY] ?: "All"
+
+        val folder = prefs[CURRENT_FOLDER_KEY] ?: "All"
+        currentFolder = if (folder == "Locked") {
+            ioScope.launch { dataStore.edit { it[CURRENT_FOLDER_KEY] = "All" } }
+            "All"
+        } else {
+            folder
+        }
     }
+
 
     fun updateNotesIsGridLayout(value: Boolean) {
         notesIsGridLayout = value

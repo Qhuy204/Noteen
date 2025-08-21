@@ -49,6 +49,11 @@ object FileManager {
         }
     }
 
+    fun deleteFileByName(fileName: String, folderName: String = "images"): Boolean {
+        val file = File(context.getExternalFilesDir(null), "$folderName/$fileName")
+        return file.exists() && file.delete()
+    }
+
     fun saveAudio(uri: Uri): File? {
         return saveToAppFolder(
             uri = uri,

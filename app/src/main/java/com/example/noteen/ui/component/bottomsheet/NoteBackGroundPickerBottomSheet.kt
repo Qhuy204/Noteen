@@ -48,7 +48,6 @@ fun NoteBackGroundPickerBottomSheet(
             .fillMaxSize()
             .zIndex(10f)
     ) {
-        // Vùng bắt click ngoài để đóng BottomSheet
         if (visible) {
             Box(
                 modifier = Modifier
@@ -79,7 +78,7 @@ fun NoteBackGroundPickerBottomSheet(
                     .fillMaxWidth()
                     .height(200.dp)
                     .shadow(
-                        elevation = 24.dp,
+                        elevation = 16.dp,
                         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
                         clip = false
                     )
@@ -114,7 +113,7 @@ fun NoteBackGroundPickerBottomSheet(
                                 painter = painterResource(id = R.drawable.sample_text),
                                 contentDescription = null,
                                 modifier = Modifier.size(48.dp),
-                                colorFilter = ColorFilter.tint(iconBgColor)
+                                colorFilter = ColorFilter.tint(iconBgColor.copy(alpha = if (isSelected) 1f else 0.3f))
                             )
                         }
                     }

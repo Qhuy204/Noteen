@@ -1,6 +1,5 @@
 package com.example.noteen.ui.screen
 
-import android.app.Application
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -11,6 +10,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.background
@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
@@ -42,10 +43,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
@@ -58,7 +59,8 @@ import com.example.noteen.ui.component.bottomsheet.NoteBackGroundPickerBottomShe
 import kotlinx.coroutines.delay
 import org.json.JSONObject
 import androidx.core.graphics.toColorInt
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.example.noteen.data.LocalRepository.entity.NoteEntity
 import com.example.noteen.data.model.ConfirmAction
 import com.example.noteen.ui.component.contextmenu.ContextMenuItem
@@ -97,11 +99,36 @@ fun OverlayTextEditor(
     selectedNote: NoteEntity,
     onGoBack: () -> Unit = {}
 ) {
+    val scope = rememberCoroutineScope()
+
     //Work with ViewModel
     LaunchedEffect(Unit) {
         viewModel.loadNote(selectedNote)
+        viewModel.loadFolderTags()
     }
     val note by viewModel.selectedNote.collectAsState()
+    val folderTags by viewModel.folderTags.collectAsState()
+    val isPinned by viewModel.isPinned.collectAsState()
+    val isCategorized by viewModel.isCategorized.collectAsState()
+    val folderId by viewModel.folder_id.collectAsState()
+    val isLocked by viewModel.isLocked.collectAsState()
+
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+
+    DisposableEffect(Unit) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) {
+                scope.launch {
+                    viewModel.saveTextNote()
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
     //
 
     val blueColor = Color(0xFF1966FF)
@@ -109,8 +136,6 @@ fun OverlayTextEditor(
 
     val keyboardController = LocalSoftwareKeyboardController.current
     val isKeyboardVisible by keyboardAsState()
-
-    val scope = rememberCoroutineScope()
 
     val shouldShowToolbar by TextEditorEngine.shouldShowToolbar
     val buttonStatesJson by TextEditorEngine.buttonStatesJson
@@ -133,8 +158,11 @@ fun OverlayTextEditor(
         isReady = true
     }
     LaunchedEffect(isKeyboardVisible) {
-        if (!isKeyboardVisible) {
+        if (!isKeyboardVisible && isReady) {
             webView.clearFocus()
+            scope.launch {
+                viewModel.saveTextNote()
+            }
         }
     }
 
@@ -149,7 +177,6 @@ fun OverlayTextEditor(
         uri?.let {
             fileManager.saveImage(it)?.let { savedFile ->
                 val virtualUrl = "https://myapp.local/external/${savedFile.name}"
-                Log.d("ImageInsert", "Generated virtualUrl: $virtualUrl")
                 TextEditorEngine.webView.evaluateJavascript(
                     "window.insertImageFromAndroid('$virtualUrl');", null
                 )
@@ -182,12 +209,13 @@ fun OverlayTextEditor(
     }
 
     var selectedColor by remember { mutableStateOf(colorPairs[0].first) }
+    val animatedBackgroundColor by animateColorAsState(targetValue = selectedColor)
 
     NoteBackGroundPickerBottomSheet(
         visible = showBottomSheet,
         colorPairs = colorPairs,
         selectedColor = selectedColor,
-        onColorSelected = {
+            onColorSelected = {
             selectedColor = it
             showBottomSheet = false
         },
@@ -196,12 +224,14 @@ fun OverlayTextEditor(
 
     var showMenuContext by remember { mutableStateOf(false) }
 
-    fun pinNote() {
+    fun togglePinNote() {
         showMenuContext = false
+        viewModel.togglePin()
     }
 
     fun uncategorizeNote() {
         showMenuContext = false
+        viewModel.uncategorize()
     }
 
     fun showSelectFolderDialog() {
@@ -214,7 +244,12 @@ fun OverlayTextEditor(
         confirmAction = ConfirmAction(
             title = "Lock Note",
             message = "Are you sure you want to lock this note?",
-            action = {  }
+            action = {
+                scope.launch {
+                    viewModel.toggleLock()
+                    onGoBack()
+                }
+            }
         )
     }
 
@@ -224,8 +259,10 @@ fun OverlayTextEditor(
             title = "Delete Note",
             message = "Are you sure you want to delete this note?",
             action = {
-                viewModel.softDeleteNote()
-                onGoBack()
+                scope.launch {
+                    viewModel.softDeleteNote()
+                    onGoBack()
+                }
             }
         )
     }
@@ -234,11 +271,13 @@ fun OverlayTextEditor(
         visible = showMenuContext,
         onDismiss = { showMenuContext = false }
     ) {
-        ContextMenuItem("Pin", R.drawable.pin, onClick = { pinNote() })
-        ContextMenuItem("Uncategorize", R.drawable.folder_open, onClick = { uncategorizeNote() })
-        ContextMenuItem("Move to new folder", R.drawable.folder_input, onClick = { showSelectFolderDialog() })
-        ContextMenuItem("Add to locked folder", R.drawable.lock_keyhole, onClick = { lockNote() })
-        ContextMenuItem("Delete", R.drawable.trash, onClick = { deleteNote() }, contentColor = Color.Red)
+        if (isPinned) ContextMenuItem(stringResource(id = R.string.unpin), R.drawable.pin_off, onClick = { togglePinNote() })
+        else ContextMenuItem(stringResource(id = R.string.pin), R.drawable.pin, onClick = { togglePinNote() })
+        ContextMenuItem(stringResource(id = R.string.uncategorize), R.drawable.folder_open, onClick = { uncategorizeNote() }, isEnabled = isCategorized)
+        ContextMenuItem(stringResource(id = R.string.move_to_new_folder), R.drawable.folder_input, onClick = { showSelectFolderDialog() })
+        if (isLocked) ContextMenuItem(stringResource(id = R.string.unlock_note), R.drawable.lock_keyhole, onClick = { lockNote() })
+        else ContextMenuItem(stringResource(id = R.string.lock_note), R.drawable.lock_keyhole, onClick = { lockNote() })
+        ContextMenuItem(stringResource(id = R.string.delete), R.drawable.trash, onClick = { deleteNote() }, contentColor = Color.Red)
     }
 
     BackHandler {
@@ -253,16 +292,16 @@ fun OverlayTextEditor(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(animatedBackgroundColor)
             .padding(WindowInsets.statusBars.asPaddingValues())
     ) {
-        val folderList = listOf("Work", "Personal", "Archive", "Important")
         if (showSelectFolderDialog) {
             SelectFolderDialog(
-                folderNames = folderList,
-                currentFolderName = "Personal",
-                onConfirm = { selectedName ->
-                    Log.d("SelectDialog", "Selected folder: $selectedName")
+                folderTags = folderTags,
+                selectedFolderId = folderId,
+                onConfirm = {
+                    viewModel.addToNewFolder(it.id, it.name)
+                    showSelectFolderDialog = false
                 },
                 onDismiss = { showSelectFolderDialog = false }
             )
@@ -319,7 +358,7 @@ fun OverlayTextEditor(
                             onClick = {
                                 keyboardController?.hide()
                             },
-                            icon = painterResource(id = R.drawable.check),
+                            icon = painterResource(id = R.drawable.check_thin),
                             unselectedIconColor = blueColor,
                             iconPadding = 8.dp,
                             modifier = Modifier.size(48.dp)

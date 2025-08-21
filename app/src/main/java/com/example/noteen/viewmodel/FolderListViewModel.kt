@@ -56,11 +56,6 @@ class FolderListViewModel(application: Application) : AndroidViewModel(applicati
     init {
         val dao = AppDatabase.getInstance(application).folderDao()
         repository = FolderRepository(dao)
-
-        viewModelScope.launch {
-            delay(420)
-            loadFolders()
-        }
     }
 
 

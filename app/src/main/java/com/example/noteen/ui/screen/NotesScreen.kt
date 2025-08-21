@@ -1,6 +1,7 @@
 package com.example.noteen.ui.screen
 
 import android.app.Application
+import android.content.Intent
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
@@ -57,12 +58,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.fragment.app.FragmentActivity
+import androidx.fragment.app.FragmentTransaction
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.noteen.R
 import com.example.noteen.TextEditorEngine
 import com.example.noteen.data.LocalRepository.entity.NoteEntity
+import com.example.noteen.data.model.parseMainTasks
+import com.example.noteen.modulartest.NotesActivity
 import com.example.noteen.ui.component.CategoryBar
 import com.example.noteen.ui.component.CustomFAB
 import com.example.noteen.ui.component.NoteCard
@@ -70,6 +75,7 @@ import com.example.noteen.ui.component.NoteCard2
 import com.example.noteen.ui.component.SearchBar
 import com.example.noteen.ui.component.SortAndLayoutToggle
 import com.example.noteen.ui.component.TaskBoard
+import com.example.noteen.ui.component.TaskCard
 import com.example.noteen.ui.component.dialog.CreateFileDialog
 import com.example.noteen.ui.component.dialog.CreateFolderDialog
 import com.example.noteen.viewmodel.NoteDetailViewModel
@@ -79,25 +85,11 @@ import kotlinx.coroutines.launch
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun NotesScreen(
-    onNavigateToNote: (Int) -> Unit = {},
+    onNavigateToNote: (Boolean) -> Unit = {},
     onNavigateToFolders: () -> Unit = {},
+    onNavigateToTasks: () -> Unit = {},
     viewModel: NoteListViewModel
 ) {
-    val context = LocalContext.current
-
-//    var isGridLayout by remember { mutableStateOf(true) }
-//    var sortMode by remember { mutableStateOf(0) }
-//    val notes = remember { getSampleNoteEntities() }
-//    val folderTags = listOf(
-//        FolderTag("All", 123),
-//        FolderTag("Documents", 90),
-//        FolderTag("Images", 4),
-//        FolderTag("Videos", 3),
-//        FolderTag("Others", 26)
-//    )
-//    var selectedFolderName by remember { mutableStateOf("All") }
-
-
     val isGridLayout = viewModel.isGridLayout
     val sortMode = viewModel.sortMode
     val currentFolder = viewModel.currentFolder
@@ -105,20 +97,28 @@ fun NotesScreen(
     val folderTags by viewModel.folderTags.collectAsState()
     val notes by viewModel.notes.collectAsState()
 
-    var showCreateCollectionDialog by remember { mutableStateOf(false) }
+    var showCreateFolderDialog by remember { mutableStateOf(false) }
     var showCreateFileDialog by remember { mutableStateOf(false) }
 
     val selectedNote by viewModel.selectedNote.collectAsState()
     val showOverlay by viewModel.showOverlay.collectAsState()
 
+    LaunchedEffect(showOverlay, showCreateFolderDialog, showCreateFileDialog) {
+        onNavigateToNote(showOverlay || showCreateFolderDialog || showCreateFileDialog)
+    }
+
+    LaunchedEffect(notes) {
+        Log.i("testtt", "${notes.map { it.thumbnail }}")
+    }
+
     /// For Collapsing Header
-    val whiteBox1Dp = 55.dp
-    val whiteBox2Dp = 50.dp
+    val header1Dp = 55.dp
+    val header2Dp = 50.dp
 
     val density = LocalDensity.current
-    val whiteBox1Px = with(density) { whiteBox1Dp.toPx() }
-    val whiteBox2Px = with(density) { whiteBox2Dp.toPx() }
-    val collapsableHeightPx = whiteBox1Px + whiteBox2Px
+    val header1Px = with(density) { header1Dp.toPx() }
+    val header2Px = with(density) { header2Dp.toPx() }
+    val collapsableHeightPx = header1Px + header2Px
 
     val offsetAnimatable = remember { Animatable(0f) }
     val coroutineScope = rememberCoroutineScope()
@@ -173,6 +173,8 @@ fun NotesScreen(
     val offsetPx = offsetAnimatable.value
     ///
 
+    val tasks = parseMainTasks("[]")
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -186,12 +188,12 @@ fun NotesScreen(
                 .padding(horizontal = 18.dp)
                 .nestedScroll(nestedScrollConnection)
         ) {
-            val whiteBox1Height = with(density) {
-                (whiteBox1Px + (offsetPx + whiteBox2Px)).coerceIn(0f, whiteBox1Px).toDp()
+            val header1Height = with(density) {
+                (header1Px + (offsetPx + header2Px)).coerceIn(0f, header1Px).toDp()
             }
 
-            val whiteBox2Height = with(density) {
-                (whiteBox2Px + offsetPx).coerceIn(0f, whiteBox2Px).toDp()
+            val header2Height = with(density) {
+                (header2Px + offsetPx).coerceIn(0f, header2Px).toDp()
             }
 
             Row(
@@ -208,18 +210,24 @@ fun NotesScreen(
                         style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                     )
                 }
-                IconButton(onClick = {}) {
+                val context = LocalContext.current
+
+                IconButton(onClick = {
+                    val intent = Intent(context, NotesActivity::class.java)
+                    context.startActivity(intent)
+                }) {
                     Icon(
                         painter = painterResource(id = R.drawable.ellipsis_vertical),
                         contentDescription = "More options"
                     )
                 }
+
             }
 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(whiteBox1Height)
+                    .height(header1Height)
             ) {
                 SearchBar()
             }
@@ -228,14 +236,14 @@ fun NotesScreen(
                 chipLists = folderTags,
                 selectedChip = currentFolder,
                 onChipClick = { viewModel.updateCurrentFolder(it) },
-                onAddButtonClick = { showCreateCollectionDialog = true },
+                onAddButtonClick = { showCreateFolderDialog = true },
                 onFolderClick = onNavigateToFolders
             )
 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(whiteBox2Height)
+                    .height(header2Height)
             ) {
                 SortAndLayoutToggle(
                     selectedSortType = sortMode,
@@ -265,8 +273,8 @@ fun NotesScreen(
                         verticalItemSpacing = 12.dp,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        item(span = StaggeredGridItemSpan.FullLine) {
-                            TaskBoard()
+                        if (currentFolder != "Locked") item(span = StaggeredGridItemSpan.FullLine) {
+                            TaskCard(onNavigateToTasks)
                         }
                         items(notes, key = { it.id }) { note ->
                             val currentNoteState by rememberUpdatedState(newValue = note)
@@ -275,6 +283,8 @@ fun NotesScreen(
                                 note = note,
                                 onClick = { currentNote ->
                                     viewModel.selectNote(currentNoteState)
+                                },
+                                onLongPress = {
                                 }
                             )
                         }
@@ -286,8 +296,8 @@ fun NotesScreen(
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(0.dp)
                     ) {
-                        item {
-                            TaskBoard()
+                        if (currentFolder != "Locked") item {
+                            TaskBoard(tasks, onNavigateToTasks)
                         }
                         items(notes, key = { it.id }) { note ->
                             val currentNoteState by rememberUpdatedState(newValue = note)
@@ -296,6 +306,8 @@ fun NotesScreen(
                                 note = note,
                                 onClick = { currentNote ->
                                     viewModel.selectNote(currentNoteState)
+                                },
+                                onLongPress = {
                                 }
                             )
                         }
@@ -316,14 +328,14 @@ fun NotesScreen(
                 }
             }
         )
-        if (showCreateCollectionDialog) {
+        if (showCreateFolderDialog) {
             CreateFolderDialog(
                 onConfirm = { folder ->
                     viewModel.addFolder(folder.name, folder.description)
-                    showCreateCollectionDialog = false
+                    showCreateFolderDialog = false
                 },
                 onDismiss = {
-                    showCreateCollectionDialog = false
+                    showCreateFolderDialog = false
                 }
             )
         }
@@ -333,7 +345,8 @@ fun NotesScreen(
                     showCreateFileDialog = false
                     coroutineScope.launch {
                         val noteId = viewModel.insertNote(NoteEntity(name = name, type = "drawing", color = selectedBackgroundColorHex))
-                        viewModel.setId(noteId.toInt())
+                        val newNote = viewModel.getSelectedNote(noteId.toInt())
+                        viewModel.selectNote(newNote)
                     }
                 },
                 onDismiss = {
@@ -363,8 +376,7 @@ fun NotesScreen(
                     }
                 }
                 else {
-                    DrawingScreen(it) { content, thumbnail ->
-                        viewModel.saveDrawingNote(content, thumbnail)
+                    DrawingScreen(noteViewModel, it) {
                         viewModel.hideOverlay()
                     }
                 }

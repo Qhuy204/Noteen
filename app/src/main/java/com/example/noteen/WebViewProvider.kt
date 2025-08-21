@@ -54,7 +54,6 @@ object TextEditorEngine {
 
     fun reset() {
         _shouldShowToolbar.value = false
-        setContent("", "")
         _titleString.value = ""
         _jsonContent.value = ""
         _plainTextContent.value = ""

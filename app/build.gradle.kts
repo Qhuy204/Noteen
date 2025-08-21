@@ -34,6 +34,7 @@ android {
     }
     kotlinOptions {
         jvmTarget = "11"
+        freeCompilerArgs += listOf("-Xjvm-default=all")
     }
     buildFeatures {
         compose = true
@@ -41,31 +42,54 @@ android {
 }
 
 dependencies {
+    // AndroidX Core
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
+
+    // Compose
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-    implementation(libs.androidx.webkit)
+
+    // Navigation
     implementation(libs.androidx.navigation.runtime.android)
     implementation(libs.androidx.navigation.compose)
+    implementation("androidx.navigation:navigation-compose:2.7.7")
+
+    // Animation & UI extras
     implementation(libs.androidx.animation.android)
+    implementation(libs.compose.shimmer)
+    implementation("com.github.commandiron:WheelPickerCompose:1.1.11")
+    implementation("com.github.skydoves:orbital:0.4.0")
+    implementation("org.burnoutcrew.composereorderable:reorderable:0.9.6")
+
+    // Data storage
     implementation(libs.androidx.datastore.preferences.core.android)
+
+    // Room Database
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    kapt(libs.androidx.room.compiler)
+
+    // Other AndroidX libs
+    implementation(libs.androidx.webkit)
+    implementation(libs.androidx.biometric)
+    implementation(libs.androidx.fragment.ktx)
+
+    // Gson
+    implementation(libs.gson)
+
+    // Test
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
+
+    // Debug
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-
-    implementation(libs.gson)
-    implementation(libs.androidx.room.runtime)
-    implementation(libs.androidx.room.ktx)
-    kapt(libs.androidx.room.compiler)
-
-    implementation(libs.compose.shimmer)
 }
