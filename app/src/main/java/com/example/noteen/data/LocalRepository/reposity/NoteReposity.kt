@@ -34,11 +34,20 @@ class NoteRepository(private val noteDao: NoteDao) {
     }
 
     suspend fun setNotePinned(noteId: Int, pinned: Boolean) {
-        noteDao.setPinned(noteId, pinned)
+        val pinnedAt: Long? = if (pinned) System.currentTimeMillis() else null
+        noteDao.setPinned(noteId, pinnedAt)
     }
 
     suspend fun setNoteLocked(noteId: Int, locked: Boolean) {
         noteDao.setLocked(noteId, locked)
+    }
+
+    suspend fun setNoteColor(noteId: Int, color: String) {
+        noteDao.setColor(noteId, color)
+    }
+
+    suspend fun setNoteBackground(noteId: Int, background: String) {
+        noteDao.setBackground(noteId, background)
     }
 
     suspend fun searchNotes(query: String): List<NoteEntity> {
@@ -62,6 +71,12 @@ class NoteRepository(private val noteDao: NoteDao) {
                 1 -> noteDao.getUncategorizedNotesSortedByCreated()
                 2 -> noteDao.getUncategorizedNotesSortedByName()
                 else -> noteDao.getUncategorizedNotesSortedByUpdated()
+            }
+            "Locked" -> when (sortMode) {
+                0 -> noteDao.getLockedNotesSortedByUpdated()
+                1 -> noteDao.getLockedNotesSortedByCreated()
+                2 -> noteDao.getLockedNotesSortedByName()
+                else -> noteDao.getLockedNotesSortedByUpdated()
             }
             else -> when (sortMode) {
                 0 -> noteDao.getNotesByFolderNameSortedByUpdated(folderName)

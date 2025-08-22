@@ -104,7 +104,7 @@ fun FolderCard(
                 shape = CircleShape,
                 color = Color.Transparent
             ) {
-                IconButton(
+                if (createdDate != "") IconButton(
                     onClick = {
                         iconButtonCoordinates?.let { coords ->
                             val pxOffset = coords.localToRoot(Offset.Zero)
@@ -176,14 +176,14 @@ fun FolderCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Text(
+                    if (createdDate != "") Text(
                         text = createdDate,
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.Gray
                     )
                 }
 
-                IconButton(
+                if (createdDate != "") IconButton(
                     onClick = {
                         iconButtonCoordinates?.let { coords ->
                             val pxOffset = coords.localToRoot(Offset.Zero)
@@ -205,7 +205,6 @@ fun FolderCard(
         }
     }
 }
-
 
 fun Density.toDpOffset(offset: Offset): DpOffset {
     return DpOffset(offset.x.toDp(), offset.y.toDp())

@@ -1,0 +1,87 @@
+<resources>
+    <string name="app_name">Noteen</string>
+
+    <string name="search">Tìm kiếm</string>
+    <string name="add_tag">Thêm</string>
+
+    <string name="note_sort1">Sửa gần đây</string>
+    <string name="note_sort2">Tạo gần đây</string>
+    <string name="note_sort3">Tên ghi chú</string>
+
+    <string name="folder_sort1">Sửa gần đây</string>
+    <string name="folder_sort2">Tạo gần đây</string>
+    <string name="folder_sort3">Tên thư mục</string>
+
+    <string name="to_do_list">Danh sách nhiệm vụ</string>
+    <string name="add_new_task">Thêm nhiệm vụ</string>
+    <string name="see_more">Xem thêm</string>
+
+    <string name="folders">Thư mục</string>
+    <string name="tasks">Nhiệm vụ</string>
+    <string name="recently_deleted">Xóa gần đây</string>
+
+    <string name="create_new_folder">Thêm một thư mục</string>
+    <string name="edit_folder">Sửa thư mục</string>
+    <string name="folder_name">Tên thư mục</string>
+    <string name="choose_folder_icon">Chọn biểu tượng</string>
+
+    <string name="create_new_drawing_board">Thêm một bảng vẽ</string>
+    <string name="file_name">Tiêu đề</string>
+    <string name="choose_background_color">Chọn màu nền</string>
+    <string name="choose_pattern">Chọn kiểu nền</string>
+
+    <string name="select_folder">Chọn thư mục</string>
+    <string name="label_folder">Thư mục</string>
+
+    <string name="title_lock_note">Khoá ghi chú</string>
+    <string name="title_delete_note">Xoá ghi chú</string>
+    <string name="title_restore_note">Khôi phục ghi chú</string>
+    <string name="confirm_delete_note">Bạn có chắc muốn xoá ghi chú này?</string>
+    <string name="confirm_lock_note">Bạn có chắc muốn khoá ghi chú này?</string>
+    <string name="confirm_unlock_note">Bạn có chắc muốn mở khoá ghi chú này?</string>
+    <string name="confirm_delete">Xoá vĩnh viễn các ghi chú đã chọn?</string>
+    <string name="confirm_restore">Khôi phục các ghi chú đã chọn?</string>
+
+    <string name="edit">Sửa</string>
+    <string name="delete">Xóa</string>
+    <string name="pin">Ghim</string>
+    <string name="unpin">Bỏ ghim</string>
+    <string name="set_background">Chỉnh nền</string>
+    <string name="uncategorize">Bỏ phân loại</string>
+    <string name="move_to_new_folder">Chuyển tới mục mới</string>
+    <string name="lock_note">Thêm vào mục khóa</string>
+    <string name="unlock_note">Bỏ khóa ghi chú</string>
+
+    <string name="today">Hôm nay</string>
+    <string name="tomorrow">Ngày mai</string>
+    <string name="yesterday">Hôm qua</string>
+    <string name="just_now">vừa xong</string>
+    <string name="minutes_ago">phút trước</string>
+    <string name="hours_ago">giờ trước</string>
+    <string name="days_ago">ngày trước</string>
+    <string name="in_minutes">phút sau</string>
+    <string name="in_hours">giờ sau</string>
+    <string name="in_days">ngày sau</string>
+
+    <string name="locked_folder">Thư mục khóa</string>
+    <string name="all">Tất cả</string>
+    <string name="uncategorized">Chưa phân loại</string>
+
+    <string name="auth_title">Xác thực</string>
+    <string name="auth_subtitle">Xác thực để mở thư mục khóa</string>
+
+    <string name="enter_task">Nhập nhiệm vụ mới</string>
+    <string name="enter_subtask">Thêm công việc</string>
+    <string name="set_due_date">Đặt nhắc nhở</string>
+    <string name="repeat">Lặp lại</string>
+    <string name="reminder">Lời nhắc</string>
+    <string name="not_set">Chưa thiết lập</string>
+    <string name="none">Không</string>
+    <string name="every_day">Mỗi ngày</string>
+    <string name="every_week">Mỗi tuần</string>
+    <string name="every_month">Mỗi tháng</string>
+    <string name="default_string">Mặc định</string>
+
+    <string name="done">Xong</string>
+    <string name="cancel">Huỷ</string>
+</resources>

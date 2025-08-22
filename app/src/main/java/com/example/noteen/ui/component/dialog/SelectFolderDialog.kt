@@ -38,19 +38,22 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import com.example.noteen.data.LocalRepository.model.FolderTag
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SelectFolderDialog(
-    folderNames: List<String>,
-    currentFolderName: String? = null,
-    onConfirm: (selectedFolderName: String) -> Unit,
+    folderTags: List<FolderTag>,
+    selectedFolderId: Int? = null,
+    onConfirm: (selectedFolder: FolderTag) -> Unit,
     onDismiss: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    var selectedFolderName by remember {
-        mutableStateOf(currentFolderName ?: folderNames.firstOrNull().orEmpty())
+    var selectedFolder by remember {
+        mutableStateOf(
+            folderTags.find { it.id == selectedFolderId } ?: folderTags.firstOrNull()
+        )
     }
 
     val focusManager = LocalFocusManager.current
@@ -109,10 +112,10 @@ fun SelectFolderDialog(
                         onExpandedChange = { expanded = !expanded },
                     ) {
                         TextField(
-                            value = selectedFolderName,
+                            value = selectedFolder?.name.orEmpty(),
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text("Folder name") },
+                            label = { Text("Folder") },
                             trailingIcon = {
                                 ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
                             },
@@ -134,18 +137,17 @@ fun SelectFolderDialog(
                             onDismissRequest = { expanded = false },
                             modifier = Modifier.background(Color.White)
                         ) {
-                            folderNames.forEach { name ->
+                            folderTags.forEach { folder ->
                                 DropdownMenuItem(
-                                    text = { Text(name) },
+                                    text = { Text(folder.name) },
                                     onClick = {
-                                        selectedFolderName = name
+                                        selectedFolder = folder
                                         expanded = false
                                     }
                                 )
                             }
                         }
                     }
-
 
                     Spacer(modifier = Modifier.height(32.dp))
 
@@ -170,14 +172,14 @@ fun SelectFolderDialog(
                             Text("Cancel")
                         }
 
-                        val isSelectionChanged = selectedFolderName != currentFolderName
+                        val isSelectionChanged = selectedFolder?.id != selectedFolderId
 
                         Button(
                             onClick = {
                                 focusManager.clearFocus()
-                                onConfirm(selectedFolderName)
+                                selectedFolder?.let { onConfirm(it) }
                             },
-                            enabled = isSelectionChanged && selectedFolderName.isNotBlank(),
+                            enabled = isSelectionChanged && selectedFolder != null,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFF1966FF),
                                 contentColor = Color.White,

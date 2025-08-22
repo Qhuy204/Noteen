@@ -2,7 +2,7 @@ package com.example.noteen.data.LocalRepository.dao
 
 import androidx.room.*
 import com.example.noteen.data.LocalRepository.entity.FolderEntity
-import com.example.noteen.data.model.FolderTag
+import com.example.noteen.data.LocalRepository.model.FolderTag
 
 @Dao
 interface FolderDao {
@@ -39,26 +39,36 @@ interface FolderDao {
     @Query("SELECT * FROM folders ORDER BY name COLLATE NOCASE ASC")
     suspend fun getFoldersSortedByName(): List<FolderEntity>
 
-    @Query(
-        """
-    SELECT 'All' AS name, COUNT(*) AS count FROM notes
-    WHERE is_deleted = 0
-    UNION ALL
-    SELECT name, count FROM (
-        SELECT f.name AS name, COUNT(n.id) AS count
-        FROM folders f
-        LEFT JOIN notes n ON f.id = n.folder_id AND is_deleted = 0
-        GROUP BY f.id
-        ORDER BY f.created_at DESC
-    )
-    UNION ALL
+    @Query("""
     SELECT * FROM (
-        SELECT 'Uncategorized' AS name, COUNT(*) AS count
+        -- Folder ảo "All"
+        SELECT 0 AS id, 'All' AS name, COUNT(*) AS count, 0 AS created_at
         FROM notes
-        WHERE folder_id IS NULL AND is_deleted = 0
-    )
-    WHERE EXISTS (SELECT 1 FROM folders)
-    """
-    )
+        WHERE is_deleted = 0 AND notes.is_locked = 0
+
+        UNION ALL
+
+        -- Folder thật
+        SELECT f.id AS id, f.name AS name, COUNT(n.id) AS count, f.created_at
+        FROM folders f
+        LEFT JOIN notes n ON f.id = n.folder_id AND n.is_deleted = 0 AND n.is_locked = 0
+        GROUP BY f.id, f.name, f.created_at
+
+        UNION ALL
+
+        -- "Uncategorized" chỉ khi có ít nhất 1 folder thật
+        SELECT -1 AS id, 'Uncategorized' AS name, COUNT(*) AS count, 0 AS created_at
+        FROM notes
+        WHERE folder_id IS NULL AND is_deleted = 0 AND notes.is_locked = 0
+          AND EXISTS (SELECT 1 FROM folders)
+    ) 
+    ORDER BY 
+        CASE WHEN name = 'All' THEN 0
+             WHEN name = 'Uncategorized' THEN 2
+             ELSE 1
+        END,
+        created_at DESC,
+        name    
+""")
     suspend fun getFolderTagsWithCounts(): List<FolderTag>
 }

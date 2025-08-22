@@ -6,14 +6,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.RequiresApi
+import androidx.fragment.app.FragmentActivity
 import com.example.noteen.ui.theme.NoteenTheme
 import com.example.noteen.data.LocalFileManager.FileManager
-import com.example.noteen.modulartest.TestNavigator
-import com.example.noteen.ui.screen.DrawingScreen
-import com.example.noteen.ui.screen.NoteEditorScreen
-import com.example.noteen.ui.screen.NotesScreen
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -27,8 +24,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             NoteenTheme {
-//                AppNavigator()
-                TestNavigator()
+                App()
             }
         }
     }

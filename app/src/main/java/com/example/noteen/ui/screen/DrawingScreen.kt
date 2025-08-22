@@ -27,16 +27,19 @@ import com.example.noteen.utils.drawStroke
 import android.graphics.Bitmap
 import android.os.Build
 import android.util.Log
+import android.view.View
 import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.LayoutDirection
@@ -58,15 +61,23 @@ import com.example.noteen.ui.component.contextmenu.ContextMenuItem
 import com.example.noteen.ui.component.contextmenu.FloatingContextMenu
 import com.example.noteen.ui.component.dialog.ConfirmDialog
 import com.example.noteen.viewmodel.NoteDetailViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun DrawingScreen(
+    viewModel: NoteDetailViewModel,
     selectedNote: NoteEntity,
-    onGoBack: (jsonString: String, fileName: String) -> Unit = { _, _ -> }
+    onGoBack: () -> Unit = { }
 ) {
+    LaunchedEffect(Unit) {
+        viewModel.loadNote(selectedNote)
+    }
+
     // Resources
     val context = LocalContext.current
     val density = LocalDensity.current
+    val scope = rememberCoroutineScope()
+
     val minScale = 1f
     val maxScale = 8f
     val displayMetrics = remember {
@@ -170,32 +181,37 @@ fun DrawingScreen(
         visible = showMenuContext,
         onDismiss = { showMenuContext = false }
     ) {
-        ContextMenuItem("Pin", R.drawable.pin, onClick = { pinNote() })
-        ContextMenuItem("Set background", R.drawable.palette, onClick = { setBackground() })
-        ContextMenuItem("Add to locked folder", R.drawable.lock_keyhole, onClick = { lockNote() })
-        ContextMenuItem("Delete", R.drawable.trash, onClick = { deleteNote() }, contentColor = Color.Red)
+        ContextMenuItem(stringResource(id = R.string.pin), R.drawable.pin, onClick = { pinNote() })
+        ContextMenuItem(stringResource(id = R.string.set_background), R.drawable.palette, onClick = { setBackground() })
+        ContextMenuItem(stringResource(id = R.string.lock_note), R.drawable.lock_keyhole, onClick = { lockNote() })
+        ContextMenuItem(stringResource(id = R.string.delete), R.drawable.trash, onClick = { deleteNote() }, contentColor = Color.Red)
     }
 
     fun saveNote() {
-        val bmp = createBitmap(screenWidthPx, screenHeightPx)
-        val canvas = android.graphics.Canvas(bmp)
-        val drawScope = CanvasDrawScope()
-        drawScope.draw(
-            density = density,
-            layoutDirection = LayoutDirection.Ltr,
-            canvas = androidx.compose.ui.graphics.Canvas(canvas),
-            size = Size(screenWidthPx.toFloat(), screenHeightPx.toFloat())
-        ) {
-            drawRect(color = backgroundColor, size = size)
-            strokes.forEach { stroke -> drawStroke(stroke) }
+        scope.launch {
+            val bmp = createBitmap(screenWidthPx, screenHeightPx)
+            val canvas = android.graphics.Canvas(bmp)
+            val drawScope = CanvasDrawScope()
+            drawScope.draw(
+                density = density,
+                layoutDirection = LayoutDirection.Ltr,
+                canvas = androidx.compose.ui.graphics.Canvas(canvas),
+                size = Size(screenWidthPx.toFloat(), screenHeightPx.toFloat())
+            ) {
+                drawRect(color = backgroundColor, size = size)
+                strokes.forEach { stroke -> drawStroke(stroke) }
+            }
+            val jsonString = createCanvasJson(strokes)
+
+            val savedFile = FileManager.saveBitmap(bmp, Bitmap.CompressFormat.PNG)
+            val fileName = savedFile?.name ?: ""
+
+            viewModel.saveDrawingNote(jsonString, fileName)
+            onGoBack()
         }
-
-        val savedFile = FileManager.saveBitmap(bmp, Bitmap.CompressFormat.PNG)
-        val jsonString = createCanvasJson(strokes)
-        val fileName = savedFile?.name ?: ""
-
-        onGoBack(jsonString, fileName)
     }
+
+    //
 
     ToolOverlay(
         selectedButtonIndex = selectedButtonIndex,
@@ -296,7 +312,6 @@ fun DrawingScreen(
 }
 
 @SuppressLint("WrongConstant")
-@RequiresApi(Build.VERSION_CODES.R)
 @Composable
 fun ImmersiveModeScreen(content: @Composable () -> Unit) {
     val context = LocalContext.current
@@ -304,20 +319,31 @@ fun ImmersiveModeScreen(content: @Composable () -> Unit) {
 
     DisposableEffect(Unit) {
         activity?.window?.let { window ->
-            WindowCompat.setDecorFitsSystemWindows(window, false)
-
-            val controller = WindowInsetsControllerCompat(window, window.decorView)
-            controller.systemBarsBehavior =
-                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-
-            controller.hide(android.view.WindowInsets.Type.systemBars())
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                WindowCompat.setDecorFitsSystemWindows(window, false)
+                val controller = WindowInsetsControllerCompat(window, window.decorView)
+                controller.systemBarsBehavior =
+                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                controller.hide(android.view.WindowInsets.Type.systemBars())
+            } else {
+                @Suppress("DEPRECATION")
+                window.decorView.systemUiVisibility = (
+                        View.SYSTEM_UI_FLAG_FULLSCREEN or
+                                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                        )
+            }
         }
-
         onDispose {
             activity?.window?.let { window ->
-                val controller = WindowInsetsControllerCompat(window, window.decorView)
-                controller.show(android.view.WindowInsets.Type.systemBars())
-                WindowCompat.setDecorFitsSystemWindows(window, true)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    val controller = WindowInsetsControllerCompat(window, window.decorView)
+                    controller.show(android.view.WindowInsets.Type.systemBars())
+                    WindowCompat.setDecorFitsSystemWindows(window, true)
+                } else {
+                    @Suppress("DEPRECATION")
+                    window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
+                }
             }
         }
     }

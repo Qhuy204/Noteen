@@ -126,17 +126,21 @@ fun ContextMenuItem(
     iconRes: Int,
     onClick: () -> Unit,
     contentColor: Color = Color.Black,
-    width: Dp = 200.dp
+    width: Dp = 200.dp,
+    isEnabled: Boolean = true
 ) {
+    val displayColor = if (isEnabled) contentColor else Color.LightGray
+
     TextButton(
         onClick = onClick,
+        enabled = isEnabled,
         shape = RoundedCornerShape(15.dp),
         modifier = Modifier
             .padding(horizontal = 6.dp)
             .width(width)
             .heightIn(min = 48.dp),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-        colors = ButtonDefaults.textButtonColors(contentColor = contentColor)
+        colors = ButtonDefaults.textButtonColors(contentColor = displayColor)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -147,13 +151,13 @@ fun ContextMenuItem(
                 painter = painterResource(id = iconRes),
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
-                colorFilter = ColorFilter.tint(contentColor)
+                colorFilter = ColorFilter.tint(displayColor)
             )
             Spacer(modifier = Modifier.width(12.dp))
             Text(
                 text = text,
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Normal),
-                color = contentColor, // ← Màu chữ
+                color = displayColor,
                 modifier = Modifier.weight(1f)
             )
         }

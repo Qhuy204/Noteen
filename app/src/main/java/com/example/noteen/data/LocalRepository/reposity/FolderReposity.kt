@@ -2,7 +2,7 @@ package com.example.noteen.data.LocalRepository.reposity
 
 import com.example.noteen.data.LocalRepository.dao.FolderDao
 import com.example.noteen.data.LocalRepository.entity.FolderEntity
-import com.example.noteen.data.model.FolderTag
+import com.example.noteen.data.LocalRepository.model.FolderTag
 
 class FolderRepository(private val folderDao: FolderDao) {
 

@@ -18,8 +18,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.changedToUp
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.zIndex
@@ -68,12 +71,11 @@ fun CreateFolderDialog(
             .background(Color.Black.copy(alpha = 0.3f))
             .clickable(
                 indication = null,
-                interactionSource = remember { MutableInteractionSource() },
-                onClick = {
-                    focusManager.clearFocus()
-                    onDismiss()
-                }
-            )
+                interactionSource = remember { MutableInteractionSource() }
+            ) {
+                focusManager.clearFocus()
+                onDismiss()
+            }
     ) {
         Box(
             modifier = Modifier
@@ -95,7 +97,7 @@ fun CreateFolderDialog(
                         .padding(25.dp)
                 ) {
                     Text(
-                        text = if (selectedFolder == null) "Create a new folder" else "Edit folder",
+                        text = if (selectedFolder == null) stringResource(id = R.string.create_new_folder) else stringResource(id = R.string.edit_folder),
                         style = MaterialTheme.typography.titleLarge,
                     )
 
@@ -104,7 +106,7 @@ fun CreateFolderDialog(
                     TextField(
                         value = folderName,
                         onValueChange = { folderName = it },
-                        label = { Text("Folder name") },
+                        label = { Text(stringResource(id = R.string.folder_name)) },
                         singleLine = true,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -128,7 +130,7 @@ fun CreateFolderDialog(
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         Text(
-                            text = "Choose a folder icon",
+                            text = stringResource(id = R.string.choose_folder_icon),
                             style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
                             modifier = Modifier.padding(bottom = 8.dp)
                         )

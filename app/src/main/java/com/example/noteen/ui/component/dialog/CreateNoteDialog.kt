@@ -39,11 +39,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.changedToUp
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import kotlinx.coroutines.delay
 import androidx.core.graphics.toColorInt
+import com.example.noteen.R
 
 @SuppressLint("RememberReturnType")
 @Composable
@@ -71,12 +75,11 @@ fun CreateFileDialog(
             .background(Color.Black.copy(alpha = 0.3f))
             .clickable(
                 indication = null,
-                interactionSource = remember { MutableInteractionSource() },
-                onClick = {
-                    focusManager.clearFocus()
-                    onDismiss()
-                }
-            )
+                interactionSource = remember { MutableInteractionSource() }
+            ) {
+                focusManager.clearFocus()
+                onDismiss()
+            }
     ) {
         Box(
             modifier = Modifier
@@ -98,7 +101,7 @@ fun CreateFileDialog(
                         .padding(25.dp)
                 ) {
                     Text(
-                        text = "Create a new drawing board",
+                        text = stringResource(id = R.string.create_new_drawing_board),
                         style = MaterialTheme.typography.titleLarge,
                     )
 
@@ -107,7 +110,7 @@ fun CreateFileDialog(
                     TextField(
                         value = fileName,
                         onValueChange = { fileName = it },
-                        label = { Text("File name") },
+                        label = { Text(stringResource(id = R.string.file_name)) },
                         singleLine = true,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -131,7 +134,7 @@ fun CreateFileDialog(
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         Text(
-                            text = "Choose background color",
+                            text = stringResource(id = R.string.choose_background_color),
                             style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
                             modifier = Modifier.padding(bottom = 8.dp)
                         )

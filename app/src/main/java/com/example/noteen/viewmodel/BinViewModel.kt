@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.noteen.data.LocalRepository.AppDatabase
 import com.example.noteen.data.LocalRepository.entity.NoteEntity
 import com.example.noteen.data.LocalRepository.reposity.NoteRepository
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,7 +21,6 @@ class BinViewModel(application: Application) : AndroidViewModel(application) {
     init {
         val dao = AppDatabase.getInstance(application).noteDao()
         repository = NoteRepository(dao)
-        loadNotes()
     }
 
     fun loadNotes() {
