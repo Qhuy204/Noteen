@@ -6,14 +6,15 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
 import androidx.room.Relation
-import java.time.LocalDateTime
 import java.util.UUID
 
 @Entity(tableName = "task_groups")
 data class TaskGroupEntity(
     @PrimaryKey val id: UUID,
     val title: String,
-    val dueDate: LocalDateTime?,
+    val dueDate: Long?,
+    val repeatMode: Int,
+    val reminder: String,
     var isExpanded: Boolean = true,
     var isCompleted: Boolean = false,
     @ColumnInfo(name = "display_order")

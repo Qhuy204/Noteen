@@ -12,9 +12,12 @@ import com.example.noteen.data.LocalRepository.entity.TaskGroupWithSubTasks
 import com.example.noteen.data.LocalRepository.reposity.TaskRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.util.UUID
+import com.example.noteen.ui.component.dialog.MainTask
+import com.example.noteen.ui.component.dialog.NewSubTask
 
 enum class DueDateStatus {
     OVERDUE, UPCOMING, LONG_TERM
@@ -32,7 +35,9 @@ data class TaskGroup(
     val id: UUID,
     val title: String,
     val subTasks: List<SubTask>,
-    val dueDate: LocalDateTime?,
+    val dueDate: Long?,
+    val repeatMode: Int,
+    val reminder: String,
     var isExpanded: Boolean,
     var isCompleted: Boolean,
     var order: Int
@@ -48,6 +53,8 @@ fun TaskGroupWithSubTasks.toModel(): TaskGroup {
         title = this.taskGroup.title,
         subTasks = sortedSubTasks,
         dueDate = this.taskGroup.dueDate,
+        repeatMode = this.taskGroup.repeatMode,
+        reminder = this.taskGroup.reminder,
         isExpanded = this.taskGroup.isExpanded,
         isCompleted = this.taskGroup.isCompleted,
         order = this.taskGroup.order
@@ -69,6 +76,8 @@ fun TaskGroup.toEntity(): TaskGroupEntity {
         id = this.id,
         title = this.title,
         dueDate = this.dueDate,
+        repeatMode = this.repeatMode,
+        reminder = this.reminder,
         isExpanded = this.isExpanded,
         isCompleted = this.isCompleted,
         order = this.order
@@ -85,6 +94,58 @@ fun SubTask.toEntity(): SubTaskEntity {
     )
 }
 
+/**
+ * Chuyển đổi dữ liệu từ MainTask của dialog thành TaskGroup của ViewModel
+ */
+fun convertDialogTaskToViewModelTask(mainTask: MainTask, tasksCount: Int): TaskGroup {
+    // Tạo một UUID duy nhất cho task mới
+    val taskId = mainTask.id ?: UUID.randomUUID()
+
+    val subTasksModel = mainTask.subTasks.mapIndexed { index, subTask ->
+        SubTask(
+            id = UUID.randomUUID(),
+            taskGroupId = taskId, // Sử dụng taskId đã tạo
+            title = subTask.name,
+            isCompleted = subTask.isCompleted,
+            order = index
+        )
+    }
+    val isCompleted = subTasksModel.isNotEmpty() && subTasksModel.all { it.isCompleted }
+
+    return TaskGroup(
+        id = taskId, // Sử dụng taskId đã tạo
+        title = mainTask.name,
+        subTasks = subTasksModel,
+        dueDate = mainTask.dueDate,
+        repeatMode = mainTask.repeatMode,
+        reminder = mainTask.reminder,
+        isExpanded = true,
+        isCompleted = isCompleted,
+        order = tasksCount
+    )
+}
+
+/**
+ * Chuyển đổi dữ liệu từ TaskGroup của ViewModel thành MainTask để hiển thị trong dialog
+ */
+fun convertViewModelTaskToDialogTask(taskGroup: TaskGroup): MainTask {
+    val subTasksDialog = taskGroup.subTasks.map { subTask ->
+        NewSubTask(
+            name = subTask.title,
+            isCompleted = subTask.isCompleted
+        )
+    }
+
+    return MainTask(
+        id = taskGroup.id,
+        name = taskGroup.title,
+        isCompleted = taskGroup.isCompleted,
+        subTasks = subTasksDialog,
+        dueDate = taskGroup.dueDate,
+        repeatMode = taskGroup.repeatMode,
+        reminder = taskGroup.reminder
+    )
+}
 
 @RequiresApi(Build.VERSION_CODES.O)
 class TasksViewModel(application: Application) : AndroidViewModel(application) {
@@ -214,12 +275,12 @@ class TasksViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
-    fun getDueDateStatus(dueDate: LocalDateTime?): DueDateStatus? {
+    fun getDueDateStatus(dueDate: Long?): DueDateStatus? {
         if (dueDate == null) return null
-        val now = LocalDateTime.now()
+        val now = Instant.now().toEpochMilli()
         return when {
-            dueDate.isBefore(now) -> DueDateStatus.OVERDUE
-            dueDate.isBefore(now.plusDays(2)) -> DueDateStatus.UPCOMING
+            dueDate < now -> DueDateStatus.OVERDUE
+            dueDate < now + (2 * 24 * 60 * 60 * 1000) -> DueDateStatus.UPCOMING
             else -> DueDateStatus.LONG_TERM
         }
     }

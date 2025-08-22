@@ -15,9 +15,8 @@ import com.example.noteen.MainActivity
 import com.example.noteen.R
 import com.example.noteen.ui.screen.ReminderActivity
 import com.example.noteen.viewmodel.TaskGroup
-import java.time.ZoneId
+import java.time.Instant
 import java.util.Calendar
-
 
 /**
  * Lớp triển khai AlarmScheduler sử dụng AlarmManager của hệ thống.
@@ -41,16 +40,7 @@ class AlarmSchedulerImpl(private val context: Context) : AlarmScheduler {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val calendar = Calendar.getInstance().apply {
-            set(Calendar.YEAR, dueDate.year)
-            set(Calendar.MONTH, dueDate.monthValue - 1)
-            set(Calendar.DAY_OF_MONTH, dueDate.dayOfMonth)
-            set(Calendar.HOUR_OF_DAY, dueDate.hour)
-            set(Calendar.MINUTE, dueDate.minute)
-            set(Calendar.SECOND, dueDate.second)
-            set(Calendar.MILLISECOND, 0)
-        }
-        val triggerAtMillis = calendar.timeInMillis
+        val triggerAtMillis = dueDate * 1000 // Convert seconds to milliseconds
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (alarmManager.canScheduleExactAlarms()) {

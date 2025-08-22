@@ -116,7 +116,7 @@ fun App() {
                 }
             }
             composable(route = "tasks_screen") {
-                TasksScreen(navController, this@SharedTransitionLayout, this)
+                TasksScreen(navController)
             }
         }
     }

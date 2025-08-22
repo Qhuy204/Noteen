@@ -1,6 +1,7 @@
 package com.example.noteen.ui.screen
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.AlarmManager
 import android.content.Context
 import android.content.Intent
@@ -8,6 +9,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -66,11 +68,14 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -100,21 +105,31 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.noteen.R
-import com.example.noteen.ui.component.dialog.AddTaskDialog
+import com.example.noteen.ui.component.dialog.CreateTaskDialog
+import com.example.noteen.ui.component.dialog.MainTask
+import com.example.noteen.ui.component.dialog.NewSubTask
 import com.example.noteen.utils.AlarmScheduler
 import com.example.noteen.utils.AlarmSchedulerImpl
 import com.example.noteen.viewmodel.DueDateStatus
 import com.example.noteen.viewmodel.SubTask
 import com.example.noteen.viewmodel.TaskGroup
 import com.example.noteen.viewmodel.TasksViewModel
+import com.example.noteen.viewmodel.convertDialogTaskToViewModelTask
+import com.example.noteen.viewmodel.convertViewModelTaskToDialogTask
 import org.burnoutcrew.reorderable.ReorderableItem
 import org.burnoutcrew.reorderable.detectReorderAfterLongPress
 import org.burnoutcrew.reorderable.rememberReorderableLazyListState
 import org.burnoutcrew.reorderable.reorderable
+import java.time.Instant
 import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.UUID
@@ -139,21 +154,35 @@ private val colorRed = Color(0xFFEF4444)
 @Composable
 fun TasksScreen(
     navController: NavController,
-    sharedTransitionScope: SharedTransitionScope,
-    animatedVisibilityScope: AnimatedVisibilityScope,
+//    sharedTransitionScope: SharedTransitionScope,
+//    animatedVisibilityScope: AnimatedVisibilityScope,
     tasksViewModel: TasksViewModel = viewModel()
 ) {
     BackHandler {
         navController.popBackStack()
     }
 
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    var showCreateTaskDialog by remember { mutableStateOf(false) }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE) {
+                showCreateTaskDialog = false
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     val tasks by tasksViewModel.taskGroups.collectAsState()
     val isEditMode by tasksViewModel.isEditMode.collectAsState()
     val selectedTaskIds by tasksViewModel.selectedTaskIds.collectAsState()
 
-    var showTaskDetailsDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
-    var taskToEdit by remember { mutableStateOf<TaskGroup?>(null) }
     val haptics = LocalHapticFeedback.current
 
     val context = LocalContext.current
@@ -163,6 +192,11 @@ fun TasksScreen(
         onMove = { from, to -> tasksViewModel.moveTask(from.index, to.index) },
         onDragEnd = { _, _ -> tasksViewModel.saveTaskOrder() }
     )
+
+    var currentMainTask by remember {
+        mutableStateOf<MainTask?>(null)
+    }
+
 
     Box(
         Modifier
@@ -231,12 +265,13 @@ fun TasksScreen(
                                     if (isChecked) {
                                         alarmScheduler.cancel(task)
                                     } else {
-                                        alarmScheduler.schedule(task)
+                                        task.dueDate?.let { alarmScheduler.schedule(task) }
                                     }
                                 },
                                 onCardClick = {
-                                    taskToEdit = task
-                                    showTaskDetailsDialog = true
+                                    currentMainTask = convertViewModelTaskToDialogTask(task)
+                                    showCreateTaskDialog = true
+
                                 },
                                 onSubTaskCheckChange = { subTaskId -> tasksViewModel.toggleSubTaskCheckbox(task.id, subTaskId) }
                             )
@@ -246,64 +281,66 @@ fun TasksScreen(
             }
         }
 
-        // --- Bottom action bar for edit mode ---
-        if (isEditMode) {
-//            CustomBottomActionBar(
-//                modifier = Modifier.align(Alignment.BottomCenter),
-//                isDeleteEnabled = selectedTaskIds.isNotEmpty(),
-//                onDelete = { showDeleteConfirmDialog = true }
-//            )
-        }
 
-        // --- FAB to add task ---
-        val fabSize = 56.dp
-        val paddingEnd = 24.dp
-        val paddingBottom = 24.dp
-        val xOffset by animateDpAsState(targetValue = if (isEditMode) 0.dp else LocalConfiguration.current.screenWidthDp.dp - fabSize - paddingEnd, label = "xOffset")
-        val yOffset by animateDpAsState(targetValue = if (isEditMode) 0.dp else LocalConfiguration.current.screenHeightDp.dp - fabSize - paddingBottom, label = "yOffset")
-
-        AddTaskFab(
-            modifier = Modifier
-                .absoluteOffset(x = xOffset, y = yOffset)
-                .size(fabSize),
-            isVisible = !isEditMode,
+        FloatingActionButton(
             onClick = {
-                taskToEdit = null
-                showTaskDetailsDialog = true
-            }
-        )
-
-        AnimatedVisibility(
-            visible = showTaskDetailsDialog || showDeleteConfirmDialog,
-            enter = fadeIn(animationSpec = tween(400)),
-            exit = fadeOut(animationSpec = tween(400))
+                currentMainTask = null
+                showCreateTaskDialog = true
+            },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(bottom = 64.dp, end = 32.dp),
+            containerColor = Color(0xFF1966FF),
+            shape = CircleShape,
+            elevation = FloatingActionButtonDefaults.elevation(4.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.4f))
-                    .clickable(enabled = false, onClick = {})
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "Toggle",
+                tint = Color.White
             )
         }
 
-        AnimatedVisibility(
-            visible = showTaskDetailsDialog,
-            enter = slideInVertically(animationSpec = tween(400, easing = LinearOutSlowInEasing)) { it },
-            exit = slideOutVertically(animationSpec = tween(400, easing = LinearOutSlowInEasing)) { it }
-        ) {
-            AddTaskDialog(
-                existingTask = taskToEdit,
-                onDismiss = { showTaskDetailsDialog = false },
-                onSaveTask = { taskToSave ->
-                    tasksViewModel.upsertTask(taskToSave)
-                    if (taskToSave.dueDate != null && !taskToSave.isCompleted) {
-                        alarmScheduler.schedule(taskToSave)
+
+
+
+        if (showCreateTaskDialog) {
+            CreateTaskDialog(
+                onConfirm = { dialogTask ->
+                    // Log the data from the dialog for debugging purposes
+                    Log.i("TasksScreen-DEBUG", "onConfirm: dialogTask.id = ${dialogTask.id}")
+                    Log.i("TasksScreen-DEBUG", "onConfirm: dialogTask.name = ${dialogTask.name}")
+                    Log.i("TasksScreen-DEBUG", "onConfirm: dialogTask.isCompleted = ${dialogTask.isCompleted}")
+                    Log.i("TasksScreen-DEBUG", "onConfirm: dialogTask.subTasks = ${dialogTask.subTasks.map { it.name }}")
+                    Log.i("TasksScreen-DEBUG", "onConfirm: dialogTask.dueDate = ${dialogTask.dueDate}")
+                    Log.i("TasksScreen-DEBUG", "onConfirm: dialogTask.repeatMode = ${dialogTask.repeatMode}")
+                    Log.i("TasksScreen-DEBUG", "onConfirm: dialogTask.reminder = ${dialogTask.reminder}")
+
+                    val viewModelTask = convertDialogTaskToViewModelTask(dialogTask, tasks.size)
+
+                    Log.i("TasksScreen-DEBUG", "onConfirm: viewModelTask.id = ${viewModelTask.id}")
+                    Log.i("TasksScreen-DEBUG", "onConfirm: viewModelTask.title = ${viewModelTask.title}")
+                    Log.i("TasksScreen-DEBUG", "onConfirm: viewModelTask.subTasks.size = ${viewModelTask.subTasks.size}")
+                    Log.i("TasksScreen-DEBUG", "onConfirm: viewModelTask.dueDate = ${viewModelTask.dueDate}")
+                    Log.i("TasksScreen-DEBUG", "onConfirm: viewModelTask.repeatMode = ${viewModelTask.repeatMode}")
+                    Log.i("TasksScreen-DEBUG", "onConfirm: viewModelTask.reminder = ${viewModelTask.reminder}")
+
+                    tasksViewModel.upsertTask(viewModelTask)
+
+                    if (viewModelTask.dueDate != null && !viewModelTask.isCompleted) {
+                        alarmScheduler.schedule(viewModelTask)
                     } else {
-                        taskToEdit?.let { alarmScheduler.cancel(it) }
+                        alarmScheduler.cancel(viewModelTask)
                     }
-                    showTaskDetailsDialog = false
+
+                    showCreateTaskDialog = false
+                    currentMainTask = null
                 },
-                tasksCount = tasks.size
+                onDismiss = {
+                    showCreateTaskDialog = false
+                    currentMainTask = null
+                },
+                defaultTask = currentMainTask
             )
         }
 
@@ -503,13 +540,18 @@ private fun TaskCard(
                 Text(
                     text = taskGroup.dueDate?.let {
                         val status = tasksViewModel.getDueDateStatus(it)
+                        // Sửa đổi cách hiển thị thời gian
+                        val dueDateAsLocalDateTime = LocalDateTime.ofInstant(
+                            Instant.ofEpochMilli(it),
+                            ZoneId.systemDefault()
+                        )
                         when (status) {
-                            DueDateStatus.OVERDUE -> "Đã hết hạn: ${it.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
-                            DueDateStatus.UPCOMING -> "Hết hạn: ${it.format(DateTimeFormatter.ofPattern("HH:mm, E, dd MMM", Locale("vi")))}"
-                            DueDateStatus.LONG_TERM -> "Hết hạn: ${it.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
-                            else -> "Not set yet"
+                            DueDateStatus.OVERDUE -> "Đã hết hạn: ${dueDateAsLocalDateTime.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
+                            DueDateStatus.UPCOMING -> "Hết hạn: ${dueDateAsLocalDateTime.format(DateTimeFormatter.ofPattern("HH:mm, E, dd MMM", Locale("vi")))}"
+                            DueDateStatus.LONG_TERM -> "Hết hạn: ${dueDateAsLocalDateTime.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
+                            else -> "Chưa đặt"
                         }
-                    } ?: "Not set yet",
+                    } ?: "Chưa đặt",
                     style = MaterialTheme.typography.bodySmall,
                     color = colorOrange
                 )
@@ -625,14 +667,14 @@ private fun SubTaskDisplayItem(subTask: SubTask, onCheckedChange: () -> Unit) {
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-private fun DueDateInfo(dueDate: LocalDateTime?) {
+private fun DueDateInfo(dueDate: Long?) {
     val viewModel: TasksViewModel = viewModel()
     val status = viewModel.getDueDateStatus(dueDate)
     if (status != null && dueDate != null) {
         val (iconRes, color, text) = when (status) {
-            DueDateStatus.OVERDUE -> Triple(R.drawable.alarm_clock, colorRed, "Đã hết hạn: ${dueDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}")
-            DueDateStatus.UPCOMING -> Triple(R.drawable.alarm_clock, colorOrange, "Hết hạn: ${dueDate.format(DateTimeFormatter.ofPattern("HH:mm, E, dd MMM", Locale("vi")))}")
-            DueDateStatus.LONG_TERM -> Triple(R.drawable.alarm_clock, textSecondary, "Hết hạn: ${dueDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}")
+            DueDateStatus.OVERDUE -> Triple(R.drawable.alarm_clock, colorRed, "Đã hết hạn: ${LocalDateTime.ofInstant(Instant.ofEpochSecond(dueDate), ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}")
+            DueDateStatus.UPCOMING -> Triple(R.drawable.alarm_clock, colorOrange, "Hết hạn: ${LocalDateTime.ofInstant(Instant.ofEpochSecond(dueDate), ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm, E, dd MMM", Locale("vi")))}")
+            DueDateStatus.LONG_TERM -> Triple(R.drawable.alarm_clock, textSecondary, "Hết hạn: ${LocalDateTime.ofInstant(Instant.ofEpochSecond(dueDate), ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}")
         }
 
         Row(
@@ -700,342 +742,6 @@ private fun AddTaskFab(modifier: Modifier = Modifier, isVisible: Boolean, onClic
             contentAlignment = Alignment.Center
         ) {
             Icon(imageVector = Icons.Default.Add, contentDescription = "Thêm nhiệm vụ", tint = Color.White, modifier = Modifier.size(28.dp))
-        }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@RequiresApi(Build.VERSION_CODES.O)
-@Composable
-private fun AddTaskDialog(
-    existingTask: TaskGroup?,
-    onDismiss: () -> Unit,
-    onSaveTask: (TaskGroup) -> Unit,
-    tasksCount: Int
-) {
-    // State for the main title, now supporting multi-line input
-    var title by remember { mutableStateOf(existingTask?.title ?: "") }
-
-    val initialSubtasks = existingTask?.subTasks?.toMutableList() ?: mutableStateListOf()
-    var subtasks by remember { mutableStateOf<MutableList<SubTask>>(initialSubtasks) }
-
-    var newSubtaskText by remember { mutableStateOf("") }
-    var showReminderSection by remember { mutableStateOf(existingTask?.dueDate != null) }
-    var selectedDateTime by remember { mutableStateOf(existingTask?.dueDate ?: LocalDateTime.now().plusMinutes(1)) }
-
-    val isSaveEnabled = title.isNotBlank() || subtasks.isNotEmpty()
-
-    val focusManager = LocalFocusManager.current
-    val newSubtaskFocus = remember { FocusRequester() }
-
-    val subtaskReorderState = rememberReorderableLazyListState(onMove = { from, to ->
-        subtasks = subtasks.toMutableList().apply {
-            add(to.index, removeAt(from.index))
-        }
-    })
-
-    val resetState = {
-        title = ""
-        subtasks = mutableStateListOf()
-        newSubtaskText = ""
-        showReminderSection = false
-        selectedDateTime = LocalDateTime.now().plusMinutes(1)
-    }
-
-    val context = LocalContext.current
-    var hasNotificationPermission by remember {
-        mutableStateOf(
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-            } else {
-                true
-            }
-        )
-    }
-    val notificationPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = { isGranted ->
-            hasNotificationPermission = isGranted
-            if (isGranted) showReminderSection = true
-        }
-    )
-
-    var showExactAlarmPermissionDialog by remember { mutableStateOf(false) }
-    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-
-    val settingsLauncher = rememberLauncherForActivityResult(contract = ActivityResultContracts.StartActivityForResult()) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && alarmManager.canScheduleExactAlarms()) {
-            val finalDueDate = if (showReminderSection) selectedDateTime else null
-            val taskGroupId = existingTask?.id ?: UUID.randomUUID()
-            val finalSubtasks = subtasks.mapIndexed { index, subTask -> subTask.copy(order = index, taskGroupId = taskGroupId) }
-            val allCompleted = finalSubtasks.isNotEmpty() && finalSubtasks.all { it.isCompleted }
-            val taskToSave = TaskGroup(
-                id = taskGroupId, title = title, subTasks = finalSubtasks, dueDate = finalDueDate,
-                isExpanded = existingTask?.isExpanded ?: true, isCompleted = allCompleted, order = existingTask?.order ?: tasksCount
-            )
-            onSaveTask(taskToSave)
-            resetState()
-        }
-    }
-
-    if (showExactAlarmPermissionDialog) {
-        AlertDialog(
-            onDismissRequest = { showExactAlarmPermissionDialog = false },
-            title = { Text("Yêu cầu quyền", fontWeight = FontWeight.Bold) },
-            text = { Text("Để đảm bảo bạn không bỏ lỡ nhiệm vụ, ứng dụng cần quyền \"Báo thức và lời nhắc\" để gửi thông báo đúng giờ.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showExactAlarmPermissionDialog = false
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
-                            data = Uri.fromParts("package", context.packageName, null)
-                            settingsLauncher.launch(this)
-                        }
-                    }
-                }) {
-                    Text("Đến cài đặt")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showExactAlarmPermissionDialog = false }) {
-                    Text("Hủy")
-                }
-            }
-        )
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .imePadding()
-            .padding(bottom = 5.dp),
-        contentAlignment = Alignment.BottomCenter
-    ) {
-        Column(
-            modifier = Modifier
-                .padding(horizontal = 10.dp)
-                .fillMaxWidth()
-                .heightIn(max = LocalConfiguration.current.screenHeightDp.dp * 0.9f)
-                .clip(RoundedCornerShape(20.dp))
-                .background(Color.White)
-                .verticalScroll(rememberScrollState())
-                .padding(20.dp)
-                .pointerInput(Unit) { detectTapGestures(onTap = {}) }
-        ) {
-            Text(
-                if (existingTask == null) "Thêm nhiệm vụ mới" else "Chỉnh sửa nhiệm vụ",
-                style = MaterialTheme.typography.titleLarge.copy(fontSize = 24.sp, fontWeight = FontWeight.Bold),
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            )
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Main task title field with multi-line paste logic
-            BasicTextField(
-                value = title,
-                onValueChange = { newValue ->
-                    // Check if the pasted text contains multiple lines
-                    val lines = newValue.split("\n")
-                    if (lines.size > 1) {
-                        // First line becomes the title
-                        title = lines.first()
-                        // Remaining lines become sub-tasks
-                        val newSubtasks = lines.drop(1).filter { it.isNotBlank() }.mapIndexed { index, subtaskTitle ->
-                            SubTask(
-                                id = UUID.randomUUID(),
-                                taskGroupId = existingTask?.id ?: UUID.randomUUID(),
-                                title = subtaskTitle.trim(),
-                                isCompleted = false,
-                                order = subtasks.size + index
-                            )
-                        }
-                        subtasks = (subtasks + newSubtasks).toMutableList()
-                    } else {
-                        title = newValue
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(screenBg, RoundedCornerShape(8.dp))
-                    .padding(12.dp),
-                textStyle = MaterialTheme.typography.bodyLarge,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                decorationBox = { innerTextField ->
-                    if (title.isEmpty()) Text("Tên nhiệm vụ...", color = textSecondary, style = MaterialTheme.typography.bodyLarge)
-                    innerTextField()
-                }
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text("Nhiệm vụ con", style = MaterialTheme.typography.titleSmall.copy(fontSize = 16.sp, fontWeight = FontWeight.SemiBold))
-            Spacer(modifier = Modifier.height(8.dp))
-
-            LazyColumn(
-                state = subtaskReorderState.listState,
-                modifier = Modifier
-                    .reorderable(subtaskReorderState)
-                    .heightIn(max = 200.dp)
-            ) {
-                itemsIndexed(subtasks, key = { _, item -> item.id }) { index, subtask ->
-                    ReorderableItem(reorderableState = subtaskReorderState, key = subtask.id) {
-                        val focusRequester = remember { FocusRequester() }
-                        SubTaskItem(
-                            modifier = Modifier.detectReorderAfterLongPress(subtaskReorderState),
-                            subTask = subtask,
-                            onCheckedChange = { subtasks = subtasks.toMutableList().apply { set(index, subtask.copy(isCompleted = it)) } },
-                            onValueChange = { newText -> subtasks = subtasks.toMutableList().apply { set(index, subtask.copy(title = newText)) } },
-                            onRemove = { subtasks = subtasks.toMutableList().apply { removeAt(index) } },
-                            focusRequester = focusRequester,
-                        )
-                    }
-                }
-            }
-
-            Row(modifier = Modifier.padding(top = 8.dp)) {
-                BasicTextField(
-                    value = newSubtaskText,
-                    onValueChange = { newSubtaskText = it },
-                    modifier = Modifier
-                        .weight(1f)
-                        .background(screenBg, RoundedCornerShape(8.dp))
-                        .padding(12.dp),
-                    textStyle = MaterialTheme.typography.bodyMedium,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = {
-                        if (newSubtaskText.isNotBlank()) {
-                            val newSub = SubTask(id = UUID.randomUUID(), taskGroupId = existingTask?.id ?: UUID.randomUUID(), title = newSubtaskText, isCompleted = false, order = subtasks.size)
-                            subtasks = (subtasks + newSub) as MutableList<SubTask>
-                            newSubtaskText = ""
-                            newSubtaskFocus.requestFocus()
-                        } else {
-                            focusManager.clearFocus()
-                        }
-                    }),
-                    decorationBox = { innerTextField ->
-                        if (newSubtaskText.isEmpty()) Text("Thêm mục...", color = textSecondary, style = MaterialTheme.typography.bodyMedium)
-                        innerTextField()
-                    }
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Box(modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color.LightGray)
-                    .clickable {
-                        if (newSubtaskText.isNotBlank()) {
-                            val newSub = SubTask(id = UUID.randomUUID(), taskGroupId = existingTask?.id ?: UUID.randomUUID(), title = newSubtaskText, isCompleted = false, order = subtasks.size)
-                            subtasks = (subtasks + newSub) as MutableList<SubTask>
-                            newSubtaskText = ""
-                            newSubtaskFocus.requestFocus()
-                        }
-                    }
-                    .padding(12.dp)) {
-                    Text("Thêm", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            AnimatedVisibility(visible = !showReminderSection) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(2.dp, Color.Gray.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                if (!hasNotificationPermission) {
-                                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                } else {
-                                    showReminderSection = true
-                                }
-                            } else {
-                                showReminderSection = true
-                            }
-                        }
-                        .padding(vertical = 12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Notifications, contentDescription = "Thêm nhắc nhở", tint = textSecondary)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Thêm nhắc nhở", color = textSecondary, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            }
-
-            AnimatedVisibility(
-                visible = showReminderSection,
-                enter = expandVertically(animationSpec = tween(400)) + fadeIn(animationSpec = tween(200, delayMillis = 200)),
-                exit = shrinkVertically(animationSpec = tween(400)) + fadeOut(animationSpec = tween(200))
-            ) {
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                        Text("Đặt nhắc nhở", style = MaterialTheme.typography.titleLarge.copy(fontSize = 16.sp, fontWeight = FontWeight.Bold))
-                        CustomIconButtonComponent(onClick = { showReminderSection = false }) {
-                            Icon(Icons.Default.Close, contentDescription = "Hủy nhắc nhở", tint = textSecondary)
-                        }
-                    }
-//                    CustomDateTimePicker(
-//                        initialDateTime = selectedDateTime,
-//                        onDateTimeSelected = { selectedDateTime = it }
-//                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(modifier = Modifier
-                    .weight(1f)
-                    .height(48.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(Color.LightGray)
-                    .clickable {
-                        resetState()
-                        onDismiss()
-                    }, contentAlignment = Alignment.Center) {
-                    Text("Hủy", fontWeight = FontWeight.Bold, color = textPrimary)
-                }
-                val saveButtonColor by animateColorAsState(if (isSaveEnabled) brandBlue else Color.Gray, label = "save_button_color")
-                Box(modifier = Modifier
-                    .weight(1f)
-                    .height(48.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(saveButtonColor)
-                    .clickable(enabled = isSaveEnabled) {
-                        val finalDueDate = if (showReminderSection) selectedDateTime else null
-                        val proceedToSave = {
-                            val taskGroupId = existingTask?.id ?: UUID.randomUUID()
-                            val finalSubtasks = subtasks.mapIndexed { index, subTask -> subTask.copy(order = index, taskGroupId = taskGroupId) }
-                            val allCompleted = finalSubtasks.isNotEmpty() && finalSubtasks.all { it.isCompleted }
-                            val taskToSave = TaskGroup(
-                                id = taskGroupId, title = title, subTasks = finalSubtasks, dueDate = finalDueDate,
-                                isExpanded = existingTask?.isExpanded ?: true, isCompleted = allCompleted, order = existingTask?.order ?: tasksCount
-                            )
-                            onSaveTask(taskToSave)
-                            resetState()
-                        }
-
-                        if (finalDueDate != null) {
-                            if(finalDueDate.isAfter(LocalDateTime.now())){
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-                                    if (alarmManager.canScheduleExactAlarms()) {
-                                        proceedToSave()
-                                    } else {
-                                        showExactAlarmPermissionDialog = true
-                                    }
-                                } else {
-                                    proceedToSave()
-                                }
-                            } else {
-                                proceedToSave()
-                            }
-                        } else {
-                            proceedToSave()
-                        }
-                    }, contentAlignment = Alignment.Center) {
-                    Text("Lưu", fontWeight = FontWeight.Bold, color = Color.White)
-                }
-            }
         }
     }
 }

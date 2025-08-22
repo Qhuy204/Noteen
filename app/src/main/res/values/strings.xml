@@ -30,6 +30,18 @@
     <string name="choose_background_color">Choose background color</string>
     <string name="choose_pattern">Choose pattern</string>
 
+    <string name="select_folder">Select folder</string>
+    <string name="label_folder">Folder</string>
+
+    <string name="title_lock_note">Lock note</string>
+    <string name="title_delete_note">Delete note</string>
+    <string name="title_restore_note">Restore note</string>
+    <string name="confirm_delete_note">Are you sure you want to delete this note?</string>
+    <string name="confirm_lock_note">Are you sure you want to lock this note?</string>
+    <string name="confirm_unlock_note">Are you sure you want to unlock this note?</string>
+    <string name="confirm_delete">Are you sure you want to delete them permanently?</string>
+    <string name="confirm_restore">Are you sure you want to restore them?</string>
+
     <string name="edit">Edit</string>
     <string name="delete">Delete</string>
     <string name="pin">Pin</string>
@@ -47,6 +59,9 @@
     <string name="minutes_ago">minutes ago</string>
     <string name="hours_ago">hours ago</string>
     <string name="days_ago">days ago</string>
+    <string name="in_minutes">minutes later</string>
+    <string name="in_hours">hours later</string>
+    <string name="in_days">days later</string>
 
     <string name="locked_folder">Locked Folder</string>
     <string name="all">All</string>
@@ -54,4 +69,19 @@
 
     <string name="auth_title">Authentication</string>
     <string name="auth_subtitle">Authenticate to unlock Locked folder</string>
+
+    <string name="enter_task">Enter a new task</string>
+    <string name="enter_subtask">Add a work</string>
+    <string name="set_due_date">Set due date</string>
+    <string name="repeat">Repeat</string>
+    <string name="reminder">Reminder</string>
+    <string name="not_set">Not set yet</string>
+    <string name="none">None</string>
+    <string name="every_day">Every day</string>
+    <string name="every_week">Every week</string>
+    <string name="every_month">Every month</string>
+    <string name="default_string">Default</string>
+
+    <string name="done">Done</string>
+    <string name="cancel">Cancel</string>
 </resources>

@@ -58,5 +58,4 @@ interface TaskDao {
 
     @Query("SELECT * FROM sub_tasks WHERE taskGroupId = :groupId")
     suspend fun getSubTasksForGroup(groupId: UUID): List<SubTaskEntity>
-
 }
