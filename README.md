@@ -47,7 +47,8 @@ All demo videos are stored in [`docs/videos/`](docs/videos).
 - 📒 Note & Folder: [Demo Note & Folder Page 1](docs/videos/Demo%20Note%20%26%20Folder%20Page%201.mp4)  
 - ✅ Task Management: [Demo Task Page](docs/videos/Demo%20Task%20Page.mp4)  
 
-> *(Click the links to view directly on GitHub. If not supported, please download and play locally.)*
+👉 You can also view all demo videos directly on Google Drive:  
+🔗 [Noteen Demo Videos (Google Drive)](https://drive.google.com/drive/folders/1XX61G8h98LEzhguyoL3l01wOtX6dzksG?usp=drive_link)
 
 ---
 
@@ -64,6 +65,7 @@ All demo videos are stored in [`docs/videos/`](docs/videos).
 **AI / ML**  
 ![PyTorch](https://img.shields.io/badge/-PyTorch-EE4C2C?logo=pytorch&logoColor=white&style=flat-square)
 ![TensorFlow](https://img.shields.io/badge/-TensorFlow-FF6F00?logo=tensorflow&logoColor=white&style=flat-square)
+![CNN](https://img.shields.io/badge/-CNN-00599C?logo=deeplearning&logoColor=white&style=flat-square)
 
 **Tools**  
 ![GitHub](https://img.shields.io/badge/-GitHub-181717?logo=github&logoColor=white&style=flat-square)
